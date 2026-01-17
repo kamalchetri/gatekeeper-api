@@ -16,32 +16,50 @@ transactions = {}
 
 
 def send_email_background(transaction_id, status):
-    print(f"📧 STARTING EMAIL THREAD for {transaction_id}...")
+    print(f"📧 DEBUG: Starting email thread for {transaction_id}")
 
     if not EMAIL_USER or not EMAIL_PASS:
-        print("❌ ERROR: Email secrets are missing.")
+        print("❌ ERROR: Secrets missing.")
         return
 
     try:
         subject = f"Gatekeeper Alert: {status}"
         body = f"Transaction {transaction_id} has been {status}."
-
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = EMAIL_USER
         msg['To'] = EMAIL_USER
 
-        # --- THE FIX: USE PORT 587 (TLS) INSTEAD OF 465 ---
-        print("🔌 Connecting to Gmail via Port 587...")
-        with smtplib.SMTP('smtp.gmail.com', 587) as server:
-            server.starttls()  # Secure the connection manually
-            server.login(EMAIL_USER, EMAIL_PASS)
-            server.send_message(msg)
+        # --- DEBUG MODE ---
+        print("🔌 Connecting to Gmail (Port 587) with 10s Timeout...")
 
+        # 1. Connect with Timeout
+        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
+
+        # 2. Turn on "Verbose" logging (Prints the hidden conversation)
+        server.set_debuglevel(1)
+
+        print("👋 Saying Hello (EHLO)...")
+        server.ehlo()
+
+        print("🔒 Starting Encryption (STARTTLS)...")
+        server.starttls()
+
+        print("👋 Saying Hello Again (EHLO)...")
+        server.ehlo()
+
+        print("🔑 Logging in...")
+        server.login(EMAIL_USER, EMAIL_PASS)
+
+        print("📨 Sending Message...")
+        server.send_message(msg)
+
+        server.quit()
         print(f"✅ EMAIL SENT SUCCESSFULLY for {transaction_id}")
 
     except Exception as e:
-        print(f"❌ EMAIL CRASHED: {e}")
+        # This will now print the EXACT error (Timeout, Auth, etc)
+        print(f"❌ EMAIL FAILED: {e}")
 
 
 def check_auth():
@@ -52,17 +70,15 @@ def check_auth():
 def dashboard():
     html = """
     <meta http-equiv="refresh" content="5">
-    <style>body{font-family:sans-serif; padding:2rem; text-align:center; background:#f0f2f5;}</style>
-    <h1>🛡️ Gatekeeper V2 (TLS)</h1>
+    <style>body{font-family:sans-serif; padding:2rem; text-align:center; background:#fff8e1;}</style>
+    <h1>🛡️ Gatekeeper Debugger</h1>
 
     {% for id, data in db.items() %}
         <div style="background:white; padding:20px; margin:20px auto; max-width:500px; border-radius:10px; border: 1px solid #ddd;">
             <h3>Request: {{ data.source }}</h3>
             <p>{{ data.description }}</p>
-
             {% if data.status == 'PENDING' %}
-                <a href="/approve/{{ id }}"><button style="background:green; color:white; padding:15px; cursor:pointer;">✅ APPROVE</button></a>
-                <a href="/reject/{{ id }}"><button style="background:red; color:white; padding:15px; cursor:pointer;">❌ REJECT</button></a>
+                <a href="/approve/{{ id }}"><button style="background:green; color:white; padding:15px;">✅ APPROVE</button></a>
             {% else %}
                 <p>Status: <b>{{ data.status }}</b></p>
             {% endif %}
@@ -86,33 +102,16 @@ def create_request():
 
 @app.route('/api/check/<req_id>')
 def check_status(req_id):
-    if req_id in transactions:
-        return jsonify({"status": transactions[req_id]["status"]})
+    if req_id in transactions: return jsonify({"status": transactions[req_id]["status"]})
     return jsonify({"status": "UNKNOWN"})
 
 
 @app.route('/approve/<req_id>')
 def approve(req_id):
-    if req_id not in transactions:
-        return "<h3>⚠️ Transaction Expired</h3>"
-
+    if req_id not in transactions: return "<h3>Expired</h3>"
     transactions[req_id]["status"] = "APPROVED"
-
-    email_thread = threading.Thread(target=send_email_background, args=(req_id, "APPROVED"))
-    email_thread.start()
-
-    return "<h3>Authorized.</h3><p>Email sending in background...</p><script>setTimeout(()=>window.location.href='/', 1500)</script>"
-
-
-@app.route('/reject/<req_id>')
-def reject(req_id):
-    if req_id not in transactions:
-        return "<h3>⚠️ Transaction Expired</h3>"
-
-    transactions[req_id]["status"] = "REJECTED"
-    email_thread = threading.Thread(target=send_email_background, args=(req_id, "REJECTED"))
-    email_thread.start()
-    return "<h3>Rejected.</h3><script>setTimeout(()=>window.location.href='/', 1500)</script>"
+    threading.Thread(target=send_email_background, args=(req_id, "APPROVED")).start()
+    return "<h3>Authorized.</h3><p>Check Render Logs for 'send: ...' messages.</p><script>setTimeout(()=>window.location.href='/', 2000)</script>"
 
 
 if __name__ == '__main__':
