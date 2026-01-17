@@ -1,65 +1,13 @@
-import os
-import smtplib
-import threading
-from email.mime.text import MIMEText
-from flask import Flask, request, jsonify, render_template_string
 import uuid
+import datetime
+from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
 
-# --- CONFIGURATION ---
-EMAIL_USER = os.environ.get('EMAIL_USER')
-EMAIL_PASS = os.environ.get('EMAIL_PASS')
-
+# --- DATABASE ---
 API_KEYS = {"sk_live_12345": "Bank of America Bot"}
 transactions = {}
-
-
-def send_email_background(transaction_id, status):
-    print(f"📧 DEBUG: Starting email thread for {transaction_id}")
-
-    if not EMAIL_USER or not EMAIL_PASS:
-        print("❌ ERROR: Secrets missing.")
-        return
-
-    try:
-        subject = f"Gatekeeper Alert: {status}"
-        body = f"Transaction {transaction_id} has been {status}."
-        msg = MIMEText(body)
-        msg['Subject'] = subject
-        msg['From'] = EMAIL_USER
-        msg['To'] = EMAIL_USER
-
-        # --- DEBUG MODE ---
-        print("🔌 Connecting to Gmail (Port 587) with 10s Timeout...")
-
-        # 1. Connect with Timeout
-        server = smtplib.SMTP('smtp.gmail.com', 587, timeout=10)
-
-        # 2. Turn on "Verbose" logging (Prints the hidden conversation)
-        server.set_debuglevel(1)
-
-        print("👋 Saying Hello (EHLO)...")
-        server.ehlo()
-
-        print("🔒 Starting Encryption (STARTTLS)...")
-        server.starttls()
-
-        print("👋 Saying Hello Again (EHLO)...")
-        server.ehlo()
-
-        print("🔑 Logging in...")
-        server.login(EMAIL_USER, EMAIL_PASS)
-
-        print("📨 Sending Message...")
-        server.send_message(msg)
-
-        server.quit()
-        print(f"✅ EMAIL SENT SUCCESSFULLY for {transaction_id}")
-
-    except Exception as e:
-        # This will now print the EXACT error (Timeout, Auth, etc)
-        print(f"❌ EMAIL FAILED: {e}")
+inbox = []  # <--- WE ARE BUILDING OUR OWN EMAIL SERVER
 
 
 def check_auth():
@@ -70,22 +18,64 @@ def check_auth():
 def dashboard():
     html = """
     <meta http-equiv="refresh" content="5">
-    <style>body{font-family:sans-serif; padding:2rem; text-align:center; background:#fff8e1;}</style>
-    <h1>🛡️ Gatekeeper Debugger</h1>
+    <style>
+        body{font-family:'Segoe UI', sans-serif; padding:2rem; text-align:center; background:#f4f4f9; color:#333;}
+        .card{background:white; padding:25px; margin:20px auto; max-width:500px; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
+        .btn{padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin:5px;}
+        .inbox-link{display:inline-block; margin-top:20px; text-decoration:none; color:#007bff; font-weight:bold;}
+    </style>
+
+    <h1>🛡️ Gatekeeper HQ</h1>
+    <a href="/inbox" class="inbox-link">📨 View Sent Emails ({{ inbox_count }})</a>
 
     {% for id, data in db.items() %}
-        <div style="background:white; padding:20px; margin:20px auto; max-width:500px; border-radius:10px; border: 1px solid #ddd;">
-            <h3>Request: {{ data.source }}</h3>
+        <div class="card">
+            <h3 style="margin-top:0;">{{ data.source }}</h3>
             <p>{{ data.description }}</p>
+            <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+
             {% if data.status == 'PENDING' %}
-                <a href="/approve/{{ id }}"><button style="background:green; color:white; padding:15px;">✅ APPROVE</button></a>
+                <a href="/approve/{{ id }}"><button class="btn" style="background:#2ecc71; color:white;">✅ APPROVE</button></a>
+                <a href="/reject/{{ id }}"><button class="btn" style="background:#e74c3c; color:white;">❌ REJECT</button></a>
             {% else %}
-                <p>Status: <b>{{ data.status }}</b></p>
+                <p style="color:{{ 'green' if data.status == 'APPROVED' else 'red' }}">
+                    <b>{{ data.status }}</b>
+                </p>
+                <p style="font-size:0.8em; color:gray;">Notification sent to Inbox</p>
             {% endif %}
         </div>
     {% endfor %}
     """
-    return render_template_string(html, db=transactions)
+    return render_template_string(html, db=transactions, inbox_count=len(inbox))
+
+
+@app.route('/inbox')
+def view_inbox():
+    # THIS IS YOUR NEW INTERNAL EMAIL VIEWER
+    html = """
+    <style>
+        body{font-family:'Segoe UI', sans-serif; padding:2rem; background:#fff; max-width:600px; margin:0 auto;}
+        .email{border:1px solid #ddd; padding:20px; margin-bottom:15px; border-radius:8px; border-left:5px solid #007bff;}
+        .time{color:#888; font-size:0.8em;}
+        h1{border-bottom:2px solid #eee; padding-bottom:10px;}
+        .back{text-decoration:none; color:#333; font-weight:bold;}
+    </style>
+    <a href="/" class="back">← Back to Dashboard</a>
+    <h1>📨 System Outbox</h1>
+
+    {% if not emails %}
+        <p>No emails sent yet.</p>
+    {% endif %}
+
+    {% for email in emails|reverse %}
+        <div class="email">
+            <div class="time">{{ email.time }}</div>
+            <h3>{{ email.subject }}</h3>
+            <p>{{ email.body }}</p>
+        </div>
+    {% endfor %}
+    """
+    return render_template_string(html, emails=inbox)
 
 
 @app.route('/api/request', methods=['POST'])
@@ -109,9 +99,32 @@ def check_status(req_id):
 @app.route('/approve/<req_id>')
 def approve(req_id):
     if req_id not in transactions: return "<h3>Expired</h3>"
+
     transactions[req_id]["status"] = "APPROVED"
-    threading.Thread(target=send_email_background, args=(req_id, "APPROVED")).start()
-    return "<h3>Authorized.</h3><p>Check Render Logs for 'send: ...' messages.</p><script>setTimeout(()=>window.location.href='/', 2000)</script>"
+
+    # SAVE EMAIL TO INTERNAL INBOX
+    inbox.append({
+        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "subject": f"Transaction {req_id} Approved",
+        "body": f"The manager has authorized the transaction {req_id} from {transactions[req_id]['source']}."
+    })
+
+    return "<h3>Authorized.</h3><p>Notification sent to Inbox.</p><script>setTimeout(()=>window.location.href='/', 1000)</script>"
+
+
+@app.route('/reject/<req_id>')
+def reject(req_id):
+    if req_id not in transactions: return "<h3>Expired</h3>"
+
+    transactions[req_id]["status"] = "REJECTED"
+
+    inbox.append({
+        "time": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "subject": f"Transaction {req_id} Rejected",
+        "body": "The manager has rejected this request."
+    })
+
+    return "<h3>Rejected.</h3><script>setTimeout(()=>window.location.href='/', 1000)</script>"
 
 
 if __name__ == '__main__':
