@@ -3,26 +3,39 @@ import uuid
 
 app = Flask(__name__)
 
-# DATABASE
+# 1. THE VALID API KEYS (The "VIP List")
+# In a real startup, this comes from a database.
+API_KEYS = {
+    "sk_live_12345": "Bank of America Bot",
+    "sk_live_events": "Ticketmaster Bot"
+}
+
 transactions = {}
+
+
+def check_auth():
+    # Look for the Key in the "Headers" (The envelope of the request)
+    key = request.headers.get('X-API-KEY')
+    if key not in API_KEYS:
+        return False
+    return True
 
 
 @app.route('/')
 def dashboard():
-    # Auto-refresh every 2 seconds
+    # Dashboard doesn't need a key (It's for you)
     html = """
-    <meta http-equiv="refresh" content="2">
+    <meta http-equiv="refresh" content="5">
     <style>body{font-family:sans-serif; padding:2rem; text-align:center; background:#f4f4f9;}</style>
     <h1>🛡️ Gatekeeper HQ</h1>
-    <p><i>Server Status: ONLINE</i></p>
 
     {% for id, data in db.items() %}
         <div style="background:white; padding:20px; margin:20px auto; max-width:500px; border-radius:10px; border: 1px solid #ddd;">
-            <h3>⚠️ Request: {{ data.source }}</h3>
+            <h3>⚠️ Request from: {{ data.source }}</h3>
             <p>{{ data.description }}</p>
+            <p style="font-size:12px; color:gray;">🔑 Authenticated via API Key</p>
 
             {% if data.status == 'PENDING' %}
-                <p>Status: <b style="color:orange">WAITING</b></p>
                 <a href="/approve/{{ id }}"><button style="background:green; color:white; padding:15px; border:none; cursor:pointer;">✅ APPROVE</button></a>
                 <a href="/reject/{{ id }}"><button style="background:red; color:white; padding:15px; border:none; cursor:pointer;">❌ REJECT</button></a>
             {% else %}
@@ -36,10 +49,14 @@ def dashboard():
 
 @app.route('/api/request', methods=['POST'])
 def create_request():
+    # SECURITY CHECK
+    if not check_auth():
+        return jsonify({"error": "Unauthorized. Please buy an API Key."}), 401
+
     data = request.json
     req_id = str(uuid.uuid4())[:8]
     transactions[req_id] = {
-        "source": data.get("source"),
+        "source": API_KEYS[request.headers.get('X-API-KEY')],  # Use the name associated with the key
         "description": data.get("description"),
         "status": "PENDING"
     }
@@ -48,6 +65,10 @@ def create_request():
 
 @app.route('/api/check/<req_id>')
 def check_status(req_id):
+    # Status checks don't strictly need auth, but let's be safe
+    if not check_auth():
+        return jsonify({"error": "Unauthorized"}), 401
+
     if req_id in transactions:
         return jsonify({"status": transactions[req_id]["status"]})
     return jsonify({"status": "UNKNOWN"})
@@ -66,6 +87,4 @@ def reject(req_id):
 
 
 if __name__ == '__main__':
-    # THREADED=TRUE means it can handle multiple requests without blocking
-    print(">>> SERVER STARTING... I WILL RUN FOREVER. <<<")
     app.run(port=5000, threaded=True)
