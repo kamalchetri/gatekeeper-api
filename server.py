@@ -1,5 +1,6 @@
 import os
 import smtplib
+import threading  # <--- NEW: Allows background tasks
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify, render_template_string
 import uuid
@@ -7,7 +8,6 @@ import uuid
 app = Flask(__name__)
 
 # --- CONFIGURATION ---
-# Load secrets from Render
 EMAIL_USER = os.environ.get('EMAIL_USER')
 EMAIL_PASS = os.environ.get('EMAIL_PASS')
 
@@ -15,29 +15,32 @@ API_KEYS = {"sk_live_12345": "Bank of America Bot"}
 transactions = {}
 
 
-def send_email(transaction_id, status):
-    """Sends a real email without crashing the server."""
+def send_email_background(transaction_id, status):
+    """Sends email in a separate thread so it doesn't crash the main app."""
+    print(f"📧 STARTING EMAIL THREAD for {transaction_id}...")
+
     if not EMAIL_USER or not EMAIL_PASS:
-        print("⚠️ Email secrets missing. Skipping.")
-        return False
+        print("❌ ERROR: Email secrets are missing in Render Environment.")
+        return
 
     try:
-        subject = f"Gatekeeper Update: {status}"
-        body = f"Transaction {transaction_id} has been {status} by the Manager."
+        subject = f"Gatekeeper Alert: {status}"
+        body = f"Transaction {transaction_id} has been {status}."
 
         msg = MIMEText(body)
         msg['Subject'] = subject
         msg['From'] = EMAIL_USER
         msg['To'] = EMAIL_USER
 
+        # Connect to Gmail
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(EMAIL_USER, EMAIL_PASS)
             server.send_message(msg)
-        print(f"✅ EMAIL SENT for {transaction_id}")
-        return True
+        print(f"✅ EMAIL SENT SUCCESSFULLY for {transaction_id}")
+
     except Exception as e:
-        print(f"❌ EMAIL FAILED: {e}")
-        return False
+        # THIS IS THE IMPORTANT PART: It prints the specific error to the logs
+        print(f"❌ EMAIL CRASHED: {e}")
 
 
 def check_auth():
@@ -46,35 +49,21 @@ def check_auth():
 
 @app.route('/')
 def dashboard():
-    # V1.0 Professional Dashboard (Clean Blue/Green Theme)
     html = """
     <meta http-equiv="refresh" content="5">
-    <style>
-        body{font-family:'Segoe UI', sans-serif; padding:2rem; text-align:center; background:#f0f2f5; color:#333;}
-        .card{background:white; padding:25px; margin:20px auto; max-width:500px; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
-        .btn{padding:12px 24px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:16px; margin:5px;}
-        .approve{background:#2ecc71; color:white;}
-        .reject{background:#e74c3c; color:white;}
-        .status{font-weight:bold; font-size:18px;}
-    </style>
-
-    <h1>🛡️ Gatekeeper V1.0</h1>
-    <p style="color:#777;">System Online • Ready for Requests</p>
+    <style>body{font-family:sans-serif; padding:2rem; text-align:center; background:#f0f2f5;}</style>
+    <h1>🛡️ Gatekeeper Async</h1>
 
     {% for id, data in db.items() %}
-        <div class="card">
-            <h3 style="margin-top:0;">Request: {{ data.source }}</h3>
-            <p style="font-size:1.1em;">{{ data.description }}</p>
-            <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+        <div style="background:white; padding:20px; margin:20px auto; max-width:500px; border-radius:10px; border: 1px solid #ddd;">
+            <h3>Request: {{ data.source }}</h3>
+            <p>{{ data.description }}</p>
 
             {% if data.status == 'PENDING' %}
-                <a href="/approve/{{ id }}"><button class="btn approve">✅ APPROVE</button></a>
-                <a href="/reject/{{ id }}"><button class="btn reject">❌ REJECT</button></a>
+                <a href="/approve/{{ id }}"><button style="background:green; color:white; padding:15px; cursor:pointer;">✅ APPROVE</button></a>
+                <a href="/reject/{{ id }}"><button style="background:red; color:white; padding:15px; cursor:pointer;">❌ REJECT</button></a>
             {% else %}
-                <p class="status" style="color:{{ 'green' if data.status == 'APPROVED' else 'red' }}">
-                    {{ data.status }}
-                </p>
-                <p style="font-size:0.9em; color:#888;">Action Logged & Email Sent</p>
+                <p>Status: <b>{{ data.status }}</b></p>
             {% endif %}
         </div>
     {% endfor %}
@@ -103,15 +92,17 @@ def check_status(req_id):
 
 @app.route('/approve/<req_id>')
 def approve(req_id):
-    # SAFETY CHECK (The Anti-Crash Logic)
     if req_id not in transactions:
-        return "<h3>⚠️ Transaction Expired</h3><p>The server restarted. Please run the Client Bot again.</p>"
+        return "<h3>⚠️ Transaction Expired (Server Restarted)</h3>"
 
     transactions[req_id]["status"] = "APPROVED"
-    # Send Email in background
-    send_email(req_id, "APPROVED")
 
-    return "<h3>Authorized.</h3><p>Email sent.</p><script>setTimeout(()=>window.location.href='/', 1500)</script>"
+    # NEW: Run email in a separate "Background Thread"
+    # This prevents the Internal Server Error!
+    email_thread = threading.Thread(target=send_email_background, args=(req_id, "APPROVED"))
+    email_thread.start()
+
+    return "<h3>Authorized.</h3><p>Email sending in background...</p><script>setTimeout(()=>window.location.href='/', 1500)</script>"
 
 
 @app.route('/reject/<req_id>')
@@ -120,7 +111,10 @@ def reject(req_id):
         return "<h3>⚠️ Transaction Expired</h3>"
 
     transactions[req_id]["status"] = "REJECTED"
-    send_email(req_id, "REJECTED")
+
+    email_thread = threading.Thread(target=send_email_background, args=(req_id, "REJECTED"))
+    email_thread.start()
+
     return "<h3>Rejected.</h3><script>setTimeout(()=>window.location.href='/', 1500)</script>"
 
 
