@@ -1,6 +1,6 @@
 import os
 import smtplib
-import threading  # <--- NEW: Allows background tasks
+import threading
 from email.mime.text import MIMEText
 from flask import Flask, request, jsonify, render_template_string
 import uuid
@@ -16,11 +16,10 @@ transactions = {}
 
 
 def send_email_background(transaction_id, status):
-    """Sends email in a separate thread so it doesn't crash the main app."""
     print(f"📧 STARTING EMAIL THREAD for {transaction_id}...")
 
     if not EMAIL_USER or not EMAIL_PASS:
-        print("❌ ERROR: Email secrets are missing in Render Environment.")
+        print("❌ ERROR: Email secrets are missing.")
         return
 
     try:
@@ -32,14 +31,16 @@ def send_email_background(transaction_id, status):
         msg['From'] = EMAIL_USER
         msg['To'] = EMAIL_USER
 
-        # Connect to Gmail
-        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+        # --- THE FIX: USE PORT 587 (TLS) INSTEAD OF 465 ---
+        print("🔌 Connecting to Gmail via Port 587...")
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.starttls()  # Secure the connection manually
             server.login(EMAIL_USER, EMAIL_PASS)
             server.send_message(msg)
+
         print(f"✅ EMAIL SENT SUCCESSFULLY for {transaction_id}")
 
     except Exception as e:
-        # THIS IS THE IMPORTANT PART: It prints the specific error to the logs
         print(f"❌ EMAIL CRASHED: {e}")
 
 
@@ -52,7 +53,7 @@ def dashboard():
     html = """
     <meta http-equiv="refresh" content="5">
     <style>body{font-family:sans-serif; padding:2rem; text-align:center; background:#f0f2f5;}</style>
-    <h1>🛡️ Gatekeeper Async</h1>
+    <h1>🛡️ Gatekeeper V2 (TLS)</h1>
 
     {% for id, data in db.items() %}
         <div style="background:white; padding:20px; margin:20px auto; max-width:500px; border-radius:10px; border: 1px solid #ddd;">
@@ -93,12 +94,10 @@ def check_status(req_id):
 @app.route('/approve/<req_id>')
 def approve(req_id):
     if req_id not in transactions:
-        return "<h3>⚠️ Transaction Expired (Server Restarted)</h3>"
+        return "<h3>⚠️ Transaction Expired</h3>"
 
     transactions[req_id]["status"] = "APPROVED"
 
-    # NEW: Run email in a separate "Background Thread"
-    # This prevents the Internal Server Error!
     email_thread = threading.Thread(target=send_email_background, args=(req_id, "APPROVED"))
     email_thread.start()
 
@@ -111,10 +110,8 @@ def reject(req_id):
         return "<h3>⚠️ Transaction Expired</h3>"
 
     transactions[req_id]["status"] = "REJECTED"
-
     email_thread = threading.Thread(target=send_email_background, args=(req_id, "REJECTED"))
     email_thread.start()
-
     return "<h3>Rejected.</h3><script>setTimeout(()=>window.location.href='/', 1500)</script>"
 
 
