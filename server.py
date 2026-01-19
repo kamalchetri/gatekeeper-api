@@ -1,35 +1,15 @@
 import os
 import uuid
 import psycopg2
-import datetime
-import sys
 from flask import Flask, request, jsonify, render_template_string
 
 app = Flask(__name__)
 
-# --- STARTUP DIAGNOSTICS ---
-# This section runs immediately when the server wakes up
-print("🔍 SYSTEM DIAGNOSTICS STARTING...")
-
-# 1. Get the URL
+# --- DATABASE CONNECTION ---
 DB_URL = os.environ.get('DATABASE_URL')
 
-# 2. Print what we found (we mask the password for safety)
-if DB_URL is None:
-    print("❌ FATAL ERROR: DATABASE_URL is None. The Environment Variable is missing.")
-elif DB_URL == "":
-    print("❌ FATAL ERROR: DATABASE_URL is Empty.")
-else:
-    masked_url = DB_URL.split('@')[-1]  # Hide password
-    print(f"✅ FOUND DATABASE URL! Pointing to: ...@{masked_url}")
-
-print("🔍 DIAGNOSTICS COMPLETE.")
-
-
-# ---------------------------
 
 def get_db_connection():
-    # This will crash intentionally if URL is missing, so we see the error in logs
     if not DB_URL:
         raise ValueError("DATABASE_URL is missing")
     conn = psycopg2.connect(DB_URL)
@@ -37,7 +17,7 @@ def get_db_connection():
 
 
 def init_db():
-    if not DB_URL: return  # Skip if broken
+    """Creates the table if it doesn't exist."""
     try:
         conn = get_db_connection()
         cur = conn.cursor()
@@ -64,12 +44,12 @@ def init_db():
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ TABLE CREATED SUCCESSFULLY.")
+        print("✅ Database Table Ready.")
     except Exception as e:
-        print(f"❌ DB INIT FAILED: {e}")
+        print(f"❌ DB Init Error: {e}")
 
 
-# Try to init immediately
+# Run once on startup
 if DB_URL:
     init_db()
 
@@ -82,24 +62,40 @@ def check_auth():
 
 @app.route('/')
 def dashboard():
-    if not DB_URL: return "<h1>❌ Critical Error: DATABASE_URL missing. Check Logs.</h1>"
+    if not DB_URL: return "<h1>❌ Error: DATABASE_URL missing.</h1>"
 
     conn = get_db_connection()
     cur = conn.cursor()
+    # Get all records, newest first
     cur.execute("SELECT * FROM transactions ORDER BY created_at DESC;")
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
+    # THE DASHBOARD WITH BUTTONS
     html = """
     <meta http-equiv="refresh" content="5">
-    <style>body{font-family:sans-serif; padding:2rem; text-align:center;}</style>
-    <h1>🛡️ Gatekeeper SQL</h1>
+    <style>
+        body{font-family:'Segoe UI', sans-serif; padding:2rem; text-align:center; background:#f4f4f9;}
+        .card{background:white; padding:25px; margin:20px auto; max-width:500px; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
+        .btn{padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin:5px; font-size:16px;}
+        .approve{background:#2ecc71; color:white;}
+        .reject{background:#e74c3c; color:white;}
+    </style>
+
+    <h1>🛡️ Gatekeeper Pro</h1>
+    <p>Persistent Database Storage</p>
+
     {% for row in rows %}
-        <div style="border:1px solid #ccc; padding:10px; margin:10px;">
-            <h3>{{ row[1] }}</h3>
-            <p>{{ row[2] }}</p>
-            <p>Status: <b>{{ row[3] }}</b></p>
+        <div class="card">
+            <h3>{{ row[1] }}</h3> <p>{{ row[2] }}</p>   {% if row[3] == 'PENDING' %}
+                <a href="/approve/{{ row[0] }}"><button class="btn approve">✅ APPROVE</button></a>
+                <a href="/reject/{{ row[0] }}"><button class="btn reject">❌ REJECT</button></a>
+            {% else %}
+                <p>Status: <b style="color:{{ 'green' if row[3] == 'APPROVED' else 'red' }}">{{ row[3] }}</b></p>
+            {% endif %}
+
+            <p style="font-size:0.7em; color:#888;">ID: {{ row[0] }}</p>
         </div>
     {% endfor %}
     """
@@ -135,6 +131,7 @@ def check_status(req_id):
     result = cur.fetchone()
     cur.close()
     conn.close()
+
     if result: return jsonify({"status": result[0]})
     return jsonify({"status": "UNKNOWN"})
 
@@ -147,7 +144,7 @@ def approve(req_id):
     conn.commit()
     cur.close()
     conn.close()
-    return "Authorized."
+    return "<h3>Authorized.</h3><script>setTimeout(()=>window.location.href='/', 1000)</script>"
 
 
 @app.route('/reject/<req_id>')
@@ -158,7 +155,7 @@ def reject(req_id):
     conn.commit()
     cur.close()
     conn.close()
-    return "Rejected."
+    return "<h3>Rejected.</h3><script>setTimeout(()=>window.location.href='/', 1000)</script>"
 
 
 if __name__ == '__main__':
