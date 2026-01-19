@@ -86,7 +86,7 @@ def send_discord_alert(webhook_url, message, color=None):
     except: pass
 
 # ===========================
-# === MOBILE-FIRST UI ===
+# === UNIFIED UI DESIGN ===
 # ===========================
 
 LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-indigo-500"><path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>"""
@@ -95,43 +95,56 @@ BASE_HEAD = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VIGIL | AI Security</title>
+    <title>VIGIL | Enterprise Security</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #0f172a; color: #f8fafc; }
-        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.08); }
-        .gradient-text { background: linear-gradient(135deg, #818cf8 0%, #c084fc 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .hero-glow { background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%); }
+        .gradient-text { background: linear-gradient(135deg, #fff 0%, #94a3b8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     </style>
 </head>
 """
 
-NAVBAR = f"""
-<nav x-data="{{ open: false }}" class="fixed w-full z-50 glass border-b border-slate-800">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex justify-between h-16">
-            <div class="flex items-center gap-2">
-                {LOGO_SVG}
-                <span class="font-bold text-xl tracking-tight text-white">VIGIL</span>
-            </div>
-            <div class="hidden md:flex items-center gap-6">
-                <a href="/#products" class="text-sm font-medium text-slate-300 hover:text-white transition">Products</a>
-                <a href="/login" class="text-sm font-medium text-slate-300 hover:text-white transition">Log In</a>
-                <a href="/register" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition shadow-lg shadow-indigo-500/20">Get Started</a>
-            </div>
-            <div class="flex items-center md:hidden">
-                <button @click="open = !open" class="text-slate-300 hover:text-white focus:outline-none p-2">
-                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
-                </button>
-            </div>
+# Common Navbar for Landing & Dashboard
+NAVBAR_CONTENT = f"""
+<nav x-data="{{ open: false }}" class="fixed w-full z-50 glass border-b border-slate-800 transition-all duration-300">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
+        <a href="/" class="flex items-center gap-3">
+            {LOGO_SVG}
+            <span class="text-xl font-bold tracking-tight text-white">VIGIL</span>
+        </a>
+
+        <div class="hidden md:flex gap-8 text-sm font-medium text-slate-400 items-center">
+            <a href="/#features" class="hover:text-white transition">Features</a>
+            <a href="/#pricing" class="hover:text-white transition">Pricing</a>
+            {{% if current_user.is_authenticated %}}
+                <a href="/dashboard" class="text-white hover:text-indigo-400 transition">Dashboard</a>
+                <a href="/logout" class="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold hover:bg-slate-700 transition">Log Out</a>
+            {{% else %}}
+                <a href="/login" class="text-slate-300 hover:text-white transition">Log in</a>
+                <a href="/register" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">Get Started</a>
+            {{% endif %}}
         </div>
+
+        <button @click="open = !open" class="md:hidden text-slate-300 focus:outline-none">
+            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
     </div>
-    <div x-show="open" @click.away="open = false" class="md:hidden bg-slate-900 border-b border-slate-800">
-        <div class="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            <a href="/#products" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800">Products</a>
-            <a href="/login" class="block px-3 py-2 rounded-md text-base font-medium text-slate-300 hover:text-white hover:bg-slate-800">Log In</a>
-            <a href="/register" class="block px-3 py-2 mt-4 text-center rounded-lg text-base font-bold bg-indigo-600 text-white">Create Account</a>
+
+    <div x-show="open" @click.away="open = false" class="md:hidden bg-slate-950 border-b border-slate-800 absolute w-full left-0 top-20 shadow-2xl">
+        <div class="flex flex-col p-6 gap-4 text-center">
+            <a href="/#features" class="text-slate-300 py-2 border-b border-slate-800">Features</a>
+            <a href="/#pricing" class="text-slate-300 py-2 border-b border-slate-800">Pricing</a>
+            {{% if current_user.is_authenticated %}}
+                <a href="/dashboard" class="text-indigo-400 font-bold py-2">Go to Dashboard</a>
+                <a href="/logout" class="text-slate-400 py-2">Log Out</a>
+            {{% else %}}
+                <a href="/login" class="text-indigo-400 font-semibold py-2">Log In</a>
+                <a href="/register" class="bg-indigo-600 text-white py-3 rounded-xl font-bold">Create Account</a>
+            {{% endif %}}
         </div>
     </div>
 </nav>
@@ -142,24 +155,191 @@ NAVBAR = f"""
 @app.route('/')
 def landing():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
-    return render_template_string("<!DOCTYPE html><html lang='en'>" + BASE_HEAD + """
-    <body class="antialiased">
-        """ + NAVBAR + """
-        <div class="pt-32 pb-16 px-4 sm:px-6 lg:px-8 text-center">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wide mb-8">
-                <span class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span> V6.1 Mobile Ready
-            </div>
-            <h1 class="text-4xl sm:text-6xl font-extrabold text-white tracking-tight mb-6">Secure your AI <br class="hidden sm:block" /><span class="gradient-text">Before it leaks.</span></h1>
-            <p class="text-lg text-slate-400 mb-10 max-w-2xl mx-auto leading-relaxed">The enterprise firewall for ChatGPT. Prevent employees from accidentally pasting API keys and PII into public AI models.</p>
-            <div class="flex flex-col sm:flex-row justify-center gap-4 max-w-md mx-auto sm:max-w-none">
-                <a href="/register" class="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25"><span>Get API Key</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg></a>
-                <a href="#" class="flex items-center justify-center gap-2 w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition"><span>Download Extension</span><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg></a>
+    return render_template_string(f"<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class='antialiased'>{NAVBAR_CONTENT}" + """
+        <div class="pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow">
+            <div class="max-w-4xl mx-auto">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide">
+                    <span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V7.0 Unified Platform
+                </div>
+                <h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight">
+                    Security for the <br class="hidden sm:block" />
+                    <span class="gradient-text">Generative AI Era.</span>
+                </h1>
+                <p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">
+                    Stop employees from accidentally pasting API keys and PII into ChatGPT. The enterprise firewall that fits in your pocket.
+                </p>
+                <div class="flex flex-col sm:flex-row justify-center gap-4 px-4">
+                    <a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Free</a>
+                    <a href="#features" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">Explore Features</a>
+                </div>
             </div>
         </div>
-        <footer class="py-12 text-center text-slate-600 text-sm border-t border-slate-900">&copy; 2026 VIGIL Security.</footer>
-    </body></html>
-    """)
 
+        <section id="features" class="py-24 bg-slate-900/50 border-t border-slate-800">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl font-bold text-white mb-4">Enterprise-Grade Protection</h2>
+                    <p class="text-slate-400">Everything you need to secure your AI workflow.</p>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="glass p-8 rounded-2xl border-t border-indigo-500/20">
+                        <div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">🕵️‍♂️</div>
+                        <h3 class="text-xl font-bold text-white mb-3">PII Redaction</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            Automatically detects and blocks Social Security Numbers, Credit Cards, and Phone Numbers before they leave your network.
+                        </p>
+                    </div>
+                    <div class="glass p-8 rounded-2xl border-t border-purple-500/20">
+                        <div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">🔑</div>
+                        <h3 class="text-xl font-bold text-white mb-3">Secret Detection</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            Prevents leaks of AWS Access Keys, Database Connection Strings, and Private Keys (RSA/PEM) instantly.
+                        </p>
+                    </div>
+                    <div class="glass p-8 rounded-2xl border-t border-green-500/20">
+                        <div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">📜</div>
+                        <h3 class="text-xl font-bold text-white mb-3">Audit Logs</h3>
+                        <p class="text-slate-400 text-sm leading-relaxed">
+                            Keep a permanent record of every blocked attempt for compliance (SOC2/HIPAA) and internal security reviews.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="py-24 relative">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="text-center mb-16">
+                    <h2 class="text-3xl font-bold text-white mb-4">Simple, Transparent Pricing</h2>
+                </div>
+                <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <div class="p-8 rounded-3xl border border-slate-800 bg-slate-900/50">
+                        <h3 class="text-xl font-bold text-slate-300 mb-2">Developer</h3>
+                        <div class="text-4xl font-bold text-white mb-6">Free</div>
+                        <ul class="space-y-4 text-slate-400 mb-8 text-sm">
+                            <li class="flex gap-3"><span>✓</span> 100 Scans / month</li>
+                            <li class="flex gap-3"><span>✓</span> Basic PII Detection</li>
+                            <li class="flex gap-3"><span>✓</span> Community Support</li>
+                        </ul>
+                        <a href="/register" class="block w-full py-3 rounded-xl border border-slate-700 text-center font-bold text-white hover:bg-slate-800 transition">Get Started</a>
+                    </div>
+                    <div class="p-8 rounded-3xl border border-indigo-500/50 bg-indigo-900/10 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 bg-indigo-600 text-xs font-bold px-3 py-1 rounded-bl-xl text-white">POPULAR</div>
+                        <h3 class="text-xl font-bold text-white mb-2">Startup</h3>
+                        <div class="text-4xl font-bold text-white mb-6">₹999 <span class="text-lg text-slate-400 font-normal">/mo</span></div>
+                        <ul class="space-y-4 text-slate-300 mb-8 text-sm">
+                            <li class="flex gap-3"><span class="text-indigo-400">✓</span> Unlimited Scans</li>
+                            <li class="flex gap-3"><span class="text-indigo-400">✓</span> Advanced Secret Detection</li>
+                            <li class="flex gap-3"><span class="text-indigo-400">✓</span> Priority Discord Alerts</li>
+                        </ul>
+                        <a href="/register" class="block w-full py-3 rounded-xl bg-indigo-600 text-center font-bold text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start 14-Day Trial</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <footer class="py-12 text-center text-slate-600 text-sm border-t border-slate-900">&copy; 2026 VIGIL Security.</footer>
+    </body></html>""", current_user=current_user)
+
+# --- DASHBOARD (Unified & Feature Rich) ---
+@app.route('/dashboard', methods=['GET', 'POST'])
+@login_required
+def dashboard():
+    # Handle Settings Save
+    if request.method == 'POST':
+        wh = request.form.get('discord_webhook')
+        if wh:
+            conn = get_db_connection(); cur = conn.cursor()
+            cur.execute("UPDATE users_v6 SET discord_webhook = %s WHERE id = %s", (wh, current_user.id))
+            conn.commit(); cur.close(); conn.close()
+            return redirect(url_for('dashboard'))
+
+    conn = get_db_connection(); cur = conn.cursor()
+    cur.execute("SELECT * FROM transactions_v6 WHERE user_id = %s ORDER BY created_at DESC LIMIT 20;", (current_user.id,))
+    rows = cur.fetchall(); cur.close(); conn.close()
+    
+    return render_template_string(f"<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class='bg-slate-950 pb-20'>{NAVBAR_CONTENT}" + """
+        <main class="pt-32 max-w-7xl mx-auto px-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Security Dashboard</h2>
+                    <p class="text-slate-400 text-sm">Manage your API keys and monitor threats.</p>
+                </div>
+                <div class="flex gap-3">
+                    <a href="/simulate_leak" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 flex items-center gap-2 transition">
+                        <span>⚠️</span> Simulate Leak
+                    </a>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+                <div class="glass p-6 rounded-2xl border-t border-indigo-500/20 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl">🔑</div>
+                    <div class="text-indigo-400 text-xs font-bold uppercase tracking-wider mb-2">Your API Key</div>
+                    <div class="font-mono text-sm text-white bg-slate-950/50 p-4 rounded-xl border border-slate-800 break-all select-all mb-2">
+                        {{ user.api_key }}
+                    </div>
+                    <p class="text-slate-500 text-xs">Use this key in the Chrome Extension or API calls.</p>
+                </div>
+
+                <div class="glass p-6 rounded-2xl border-t border-purple-500/20 relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10 text-6xl">🔔</div>
+                    <div class="text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">Discord Alerts</div>
+                    <form method="POST" class="mt-2">
+                        <div class="flex gap-2">
+                            <input type="text" name="discord_webhook" value="{{ user.discord_webhook or '' }}" placeholder="Paste Discord Webhook URL..." class="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 placeholder-slate-600 transition">
+                            <button class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl text-sm font-bold transition shadow-lg shadow-purple-500/20">Save</button>
+                        </div>
+                    </form>
+                    <p class="text-slate-500 text-xs mt-2">We will send a notification here when a leak is blocked.</p>
+                </div>
+            </div>
+
+            <div class="mb-4 flex items-center gap-3">
+                <h3 class="text-lg font-bold text-white">Recent Activity</h3>
+                <span class="px-2 py-1 bg-green-500/10 text-green-400 text-xs font-bold rounded-full border border-green-500/20 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Live
+                </span>
+            </div>
+
+            <div class="space-y-3">
+                {% if not rows %}
+                <div class="text-center py-12 rounded-2xl border border-dashed border-slate-800">
+                    <div class="text-4xl mb-4 opacity-50">🛡️</div>
+                    <p class="text-slate-400">No threats detected yet.</p>
+                </div>
+                {% endif %}
+
+                {% for row in rows %}
+                <div class="glass rounded-xl p-5 border-l-[4px] transition hover:bg-slate-800/50 {{ 'border-red-500' if row[5] > 70 else 'border-green-500' }}">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-3 mb-2">
+                                <span class="font-bold text-white text-sm">{{ row[2] }}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider {{ 'bg-red-500/20 text-red-400' if row[4] == 'BLOCKED' else 'bg-green-500/20 text-green-400' }}">{{ row[4] }}</span>
+                            </div>
+                            <div class="font-mono text-xs text-slate-300 break-all bg-black/30 p-2 rounded border border-white/5">
+                                "{{ row[3] }}"
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-6 text-xs text-slate-500 whitespace-nowrap">
+                            <div class="flex flex-col items-end">
+                                <span class="uppercase font-bold text-[10px] tracking-wide mb-0.5">Risk Score</span>
+                                <span class="text-sm font-bold {{ 'text-red-400' if row[5] > 70 else 'text-green-400' }}">{{ row[5] }}/100</span>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <span class="uppercase font-bold text-[10px] tracking-wide mb-0.5">Time</span>
+                                <span>{{ row[7].strftime('%H:%M') }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </main>
+    </body></html>""", user=current_user, rows=rows, current_user=current_user)
+
+# --- AUTH ROUTES (Styled) ---
 AUTH_LAYOUT = f"""<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8"><div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-8"><div class="mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4">{LOGO_SVG}</div><h2 class="text-3xl font-extrabold text-white">VIGIL</h2><p class="mt-2 text-sm text-slate-400">Enterprise AI Security</p></div><div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md"><div class="glass py-8 px-6 shadow rounded-2xl sm:px-10">CONTENT_PLACEHOLDER</div></div></body></html>"""
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -172,7 +352,7 @@ def login():
         if row and check_password_hash(row[2], p):
             user = User(id=row[0], username=row[1], password_hash=row[2], discord_webhook=row[3], api_key=row[4], plan_type=row[5]); login_user(user); return redirect(url_for('dashboard'))
         msg = "Invalid credentials"
-    form = f"""<form class="space-y-6" method="POST">{'<div class="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center border border-red-500/20">'+msg+'</div>' if msg else ''}<div><label class="block text-sm font-medium text-slate-300">Username</label><div class="mt-1"><input name="username" type="text" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><label class="block text-sm font-medium text-slate-300">Password</label><div class="mt-1"><input name="password" type="password" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">Sign in</button></div></form><div class="mt-6"><div class="relative"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div><div class="relative flex justify-center text-sm"><span class="px-2 bg-slate-900 text-slate-500">Or</span></div></div><div class="mt-6 grid grid-cols-1 gap-3"><a href="/register" class="w-full flex justify-center py-3 px-4 border border-slate-700 rounded-xl shadow-sm text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 transition">Create new account</a></div></div>"""
+    form = f"""<form class="space-y-6" method="POST">{'<div class="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center border border-red-500/20">'+msg+'</div>' if msg else ''}<div><label class="block text-sm font-medium text-slate-300">Username</label><div class="mt-1"><input name="username" type="text" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><label class="block text-sm font-medium text-slate-300">Password</label><div class="mt-1"><input name="password" type="password" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">Sign in</button></div></form><div class="mt-6"><div class="relative"><div class="absolute inset-0 flex items-center"><div class="w-full border-t border-slate-700"></div></div><div class="relative flex justify-center text-sm"><span class="px-2 bg-slate-900 text-slate-500">Or</span></div></div><div class="mt-6 grid grid-cols-1 gap-3"><a href="/register" class="w-full flex justify-center py-3 px-4 border border-slate-700 rounded-xl shadow-sm text-sm font-medium text-slate-300 bg-slate-800 hover:bg-slate-700 transition">Create new account</a></div></div>"""
     return render_template_string(AUTH_LAYOUT.replace("CONTENT_PLACEHOLDER", form))
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -182,58 +362,8 @@ def register():
         u = request.form['username']; p = request.form['password']; h = generate_password_hash(p); k = "sk_live_" + secrets.token_hex(16)
         try: conn = get_db_connection(); cur = conn.cursor(); cur.execute("INSERT INTO users_v6 (username, password_hash, api_key) VALUES (%s, %s, %s) RETURNING id", (u, h, k)); uid = cur.fetchone()[0]; conn.commit(); cur.close(); conn.close(); user = User(id=uid, username=u, password_hash=h, discord_webhook=None, api_key=k); login_user(user); return redirect(url_for('dashboard'))
         except: msg = "Username taken"
-    form = f"""<form class="space-y-6" method="POST">{'<div class="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center border border-red-500/20">'+msg+'</div>' if msg else ''}<div><label class="block text-sm font-medium text-slate-300">Choose Username</label><div class="mt-1"><input name="username" type="text" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><label class="block text-sm font-medium text-slate-300">Choose Password</label><div class="mt-1"><input name="password" type="password" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">Create Account</button></div></form><div class="mt-6 text-center text-sm"><a href="/login" class="font-medium text-indigo-400 hover:text-indigo-300">Already have an account? Log in</a></div>"""
+    form = f"""<form class="space-y-6" method="POST">{'<div class="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center border border-red-500/20">'+msg+'</div>' if msg else ''}<div><label class="block text-sm font-medium text-slate-300">Choose Username</label><div class="mt-1"><input name="username" type="text" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><label class="block text-sm font-medium text-slate-300">Choose Password</label><div class="mt-1"><input name="password" type="password" required class="appearance-none block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></div></div><div><button type="submit" class="w-full flex justify-center py-3 px-4 border border-transparent rounded-xl shadow-sm text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">Create Account</button></div></form><div class="mt-6 text-center text-sm"><a href="/login" class="font-medium text-indigo-400 hover:text-indigo-300">Already have an account? Log in</a></div>"""
     return render_template_string(AUTH_LAYOUT.replace("CONTENT_PLACEHOLDER", form))
-
-@app.route('/dashboard', methods=['GET', 'POST']) # Updated to support saving webhook
-@login_required
-def dashboard():
-    # Handle Webhook Save
-    if request.method == 'POST':
-        wh = request.form.get('discord_webhook')
-        conn = get_db_connection(); cur = conn.cursor()
-        cur.execute("UPDATE users_v6 SET discord_webhook = %s WHERE id = %s", (wh, current_user.id))
-        conn.commit(); cur.close(); conn.close()
-        return redirect(url_for('dashboard'))
-
-    conn = get_db_connection(); cur = conn.cursor(); cur.execute("SELECT * FROM transactions_v6 WHERE user_id = %s ORDER BY created_at DESC LIMIT 20;", (current_user.id,)); rows = cur.fetchall(); cur.close(); conn.close()
-    
-    return render_template_string(f"""<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class="bg-slate-950 pb-20">
-        <nav x-data="{{ open: false }}" class="glass border-b border-slate-800 sticky top-0 z-20">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div class="flex justify-between h-16"><div class="flex items-center gap-2">{LOGO_SVG}<span class="font-bold text-white tracking-tight">VIGIL</span></div><div class="flex items-center gap-4"><a href="/simulate_leak" class="hidden sm:flex bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold items-center gap-2 transition"><span>⚠️</span> Test Leak</a><a href="/logout" class="text-slate-400 hover:text-white text-sm font-medium">Log out</a></div></div></div>
-        </nav>
-        <main class="max-w-5xl mx-auto p-4 sm:p-6 mt-4">
-            
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div class="glass p-5 rounded-xl border-t border-indigo-500/20">
-                    <div class="text-slate-400 text-xs font-bold uppercase mb-2">API Key</div>
-                    <div class="font-mono text-xs text-indigo-300 bg-black/50 p-3 rounded border border-slate-800 break-all select-all">{{{{ user.api_key }}}}</div>
-                </div>
-                <div class="glass p-5 rounded-xl border-t border-purple-500/20">
-                    <div class="text-slate-400 text-xs font-bold uppercase mb-2">Discord Alerts</div>
-                    <form method="POST" class="flex gap-2">
-                        <input type="text" name="discord_webhook" value="{{{{ user.discord_webhook or '' }}}}" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-black/50 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-purple-500 placeholder-slate-600">
-                        <button class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded text-xs font-bold transition">Save</button>
-                    </form>
-                </div>
-            </div>
-
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold text-white">Security Events</h2>
-                <div class="text-green-400 text-xs font-bold flex items-center gap-2"><span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> System Active</div>
-            </div>
-
-            <div class="space-y-3">
-                {{% for row in rows %}}
-                <div class="glass rounded-xl p-4 border-l-[3px] shadow-sm {{ 'border-red-500' if row[5] > 70 else 'border-green-500' }}">
-                    <div class="flex justify-between items-start mb-2"><span class="font-bold text-white text-sm truncate pr-2">{{{{ row[2] }}}}</span><span class="text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider {{ 'bg-red-500/20 text-red-400' if row[4] == 'BLOCKED' else 'bg-green-500/20 text-green-400' }}">{{{{ row[4] }}}}</span></div>
-                    <div class="bg-black/40 rounded p-2.5 mb-2 font-mono text-xs text-slate-300 break-all border border-white/5">"{{{{ row[3] }}}}"</div>
-                    <div class="flex items-center justify-between text-xs text-slate-500"><span>Risk Score: <span class="{{ 'text-red-400' if row[5] > 70 else 'text-green-400' }} font-bold">{{{{ row[5] }}}}</span></span><span>{{{{ row[7].strftime('%H:%M') }}}}</span></div>
-                </div>
-                {{% endfor %}}
-            </div>
-        </main>
-    </body></html>""", user=current_user, rows=rows)
 
 # API & Sim Routes
 @app.route('/v1/firewall', methods=['POST'])
