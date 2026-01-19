@@ -117,6 +117,9 @@ NAVBAR_CONTENT = f"""
     <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
         <a href="/" class="flex items-center gap-3">{LOGO_SVG}<span class="text-xl font-bold tracking-tight text-white">VIGIL</span></a>
         <div class="hidden md:flex gap-8 text-sm font-medium text-slate-400 items-center">
+            <a href="/guide" class="text-indigo-400 font-bold hover:text-indigo-300 transition flex items-center gap-1">
+                <span>📚</span> How to Install
+            </a>
             <a href="/#features" class="hover:text-white transition">Features</a>
             <a href="/#pricing" class="hover:text-white transition">Pricing</a>
             {{% if current_user.is_authenticated %}}
@@ -133,6 +136,7 @@ NAVBAR_CONTENT = f"""
     </div>
     <div x-show="open" @click.away="open = false" class="md:hidden bg-slate-900 border-b border-slate-800 absolute w-full left-0 top-20 shadow-2xl">
         <div class="flex flex-col p-6 gap-4 text-center">
+            <a href="/guide" class="text-indigo-400 font-bold py-2 border-b border-slate-800">📚 How to Install</a>
             <a href="/#features" class="text-slate-300 py-2 border-b border-slate-800">Features</a>
             <a href="/#pricing" class="text-slate-300 py-2 border-b border-slate-800">Pricing</a>
             {{% if current_user.is_authenticated %}}
@@ -155,13 +159,54 @@ def landing():
     return render_template_string(f"<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class='antialiased'>{NAVBAR_CONTENT}" + """
         <div class="pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow">
             <div class="max-w-4xl mx-auto">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V7.1 Unified Platform</div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V8.0 Unified Platform</div>
                 <h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight">Security for the <br class="hidden sm:block" /><span class="gradient-text">Generative AI Era.</span></h1>
                 <p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">Stop employees from accidentally pasting API keys and PII into ChatGPT.</p>
-                <div class="flex flex-col sm:flex-row justify-center gap-4 px-4"><a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Free</a></div>
+                <div class="flex flex-col sm:flex-row justify-center gap-4 px-4">
+                    <a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Free</a>
+                    <a href="/guide" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">How to Install</a>
+                </div>
             </div>
         </div>
+        
+        <section id="features" class="py-24 bg-slate-900/50 border-t border-slate-800">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="text-center mb-16"><h2 class="text-3xl font-bold text-white mb-4">Enterprise-Grade Protection</h2></div>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="glass p-8 rounded-2xl border-t border-indigo-500/20"><div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">🕵️‍♂️</div><h3 class="text-xl font-bold text-white mb-3">PII Redaction</h3><p class="text-slate-400 text-sm">Automatically detects and blocks Social Security Numbers and Credit Cards.</p></div>
+                    <div class="glass p-8 rounded-2xl border-t border-purple-500/20"><div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">🔑</div><h3 class="text-xl font-bold text-white mb-3">Secret Detection</h3><p class="text-slate-400 text-sm">Prevents leaks of AWS Access Keys and Database Connection Strings.</p></div>
+                    <div class="glass p-8 rounded-2xl border-t border-green-500/20"><div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">📜</div><h3 class="text-xl font-bold text-white mb-3">Audit Logs</h3><p class="text-slate-400 text-sm">Permanent record of every blocked attempt for SOC2 compliance.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <section id="pricing" class="py-24 relative">
+            <div class="max-w-7xl mx-auto px-6">
+                <div class="text-center mb-16"><h2 class="text-3xl font-bold text-white mb-4">Simple, Transparent Pricing</h2></div>
+                <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <div class="p-8 rounded-3xl border border-slate-800 bg-slate-900/50"><h3 class="text-xl font-bold text-slate-300 mb-2">Developer</h3><div class="text-4xl font-bold text-white mb-6">Free</div><ul class="space-y-4 text-slate-400 mb-8 text-sm"><li class="flex gap-3"><span>✓</span> 100 Scans / month</li><li class="flex gap-3"><span>✓</span> Basic PII Detection</li></ul><a href="/register" class="block w-full py-3 rounded-xl border border-slate-700 text-center font-bold text-white hover:bg-slate-800 transition">Get Started</a></div>
+                    <div class="p-8 rounded-3xl border border-indigo-500/50 bg-indigo-900/10 relative overflow-hidden"><div class="absolute top-0 right-0 bg-indigo-600 text-xs font-bold px-3 py-1 rounded-bl-xl text-white">POPULAR</div><h3 class="text-xl font-bold text-white mb-2">Startup</h3><div class="text-4xl font-bold text-white mb-6">₹999 <span class="text-lg text-slate-400 font-normal">/mo</span></div><ul class="space-y-4 text-slate-300 mb-8 text-sm"><li class="flex gap-3"><span class="text-indigo-400">✓</span> Unlimited Scans</li><li class="flex gap-3"><span class="text-indigo-400">✓</span> Advanced Secret Detection</li></ul><a href="/register" class="block w-full py-3 rounded-xl bg-indigo-600 text-center font-bold text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start 14-Day Trial</a></div>
+                </div>
+            </div>
+        </section>
         <footer class="py-12 text-center text-slate-600 text-sm border-t border-slate-900">&copy; 2026 VIGIL Security.</footer>
+    </body></html>""", current_user=current_user)
+
+@app.route('/guide')
+def guide():
+    return render_template_string(f"<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class='bg-slate-950 pb-20'>{NAVBAR_CONTENT}" + """
+        <main class="pt-32 max-w-4xl mx-auto px-6">
+            <div class="text-center mb-16">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wide mb-6"><span class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span> Quick Setup</div>
+                <h1 class="text-3xl md:text-5xl font-bold text-white mb-6">How to install <span class="gradient-text">VIGIL Shield</span></h1>
+                <p class="text-slate-400 text-lg">Follow these 3 simple steps to secure your browser in less than 2 minutes.</p>
+            </div>
+            <div class="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-800 before:to-transparent">
+                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-indigo-500 group-[.is-active]:bg-indigo-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">1</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Download the Shield</h3><p class="text-slate-400 text-sm mb-4">Get the latest version of the extension files.</p><a href="#" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition border border-slate-700"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Download .zip</a></div></div>
+                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-purple-500 group-[.is-active]:bg-purple-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">2</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Load into Chrome</h3><p class="text-slate-400 text-sm mb-2">1. Open <code class="bg-black/50 px-1 py-0.5 rounded text-indigo-300 font-mono text-xs">chrome://extensions</code></p><p class="text-slate-400 text-sm mb-2">2. Toggle <strong>Developer Mode</strong> (Top Right).</p><p class="text-slate-400 text-sm">3. Click <strong>Load Unpacked</strong> and select the unzipped folder.</p></div></div>
+                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-green-500 group-[.is-active]:bg-green-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">3</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Connect & Protect</h3><p class="text-slate-400 text-sm mb-4">Click the VIGIL icon in your toolbar and enter your API Key from the dashboard.</p>{% if current_user.is_authenticated %}<div class="bg-black/50 p-3 rounded-lg border border-slate-800 font-mono text-xs text-green-400 break-all select-all text-center">{{ current_user.api_key }}</div>{% else %}<a href="/login" class="text-indigo-400 text-sm font-bold hover:text-indigo-300">Log in to see your key &rarr;</a>{% endif %}</div></div>
+            </div>
+        </main>
     </body></html>""", current_user=current_user)
 
 @app.route('/dashboard', methods=['GET', 'POST'])
@@ -169,7 +214,6 @@ def landing():
 def dashboard():
     msg_status = None
     if request.method == 'POST':
-        # FIX: Directly get the form data, allow clearing it if needed
         wh = request.form.get('discord_webhook', '').strip()
         try:
             print(f"DEBUG: Saving Webhook for User {current_user.id}: {wh}")
@@ -178,8 +222,7 @@ def dashboard():
             conn.commit(); cur.close(); conn.close()
             msg_status = "✅ Settings Saved Successfully"
         except Exception as e:
-            print(f"DEBUG ERROR: {e}")
-            msg_status = f"❌ Error Saving: {e}"
+            print(f"DEBUG ERROR: {e}"); msg_status = f"❌ Error Saving: {e}"
 
     conn = get_db_connection(); cur = conn.cursor()
     cur.execute("SELECT * FROM transactions_v6 WHERE user_id = %s ORDER BY created_at DESC LIMIT 20;", (current_user.id,))
@@ -193,9 +236,7 @@ def dashboard():
             </div>
 
             {% if msg %}
-            <div class="mb-6 p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-bold text-center animate-pulse">
-                {{ msg }}
-            </div>
+            <div class="mb-6 p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-bold text-center animate-pulse">{{ msg }}</div>
             {% endif %}
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
@@ -283,11 +324,37 @@ def simulate_leak():
         # DEBUG: Force print to console
         print("DEBUG: Simulating Leak...")
         if status == "BLOCKED":
-             # Use current_user.discord_webhook directly to avoid stale data
+            # Use current_user.discord_webhook directly to avoid stale data
             send_discord_alert(current_user.discord_webhook, f"🚨 **BLOCKED**\nUser: {source}\nReason: {reason}", 15548997)
             
         return redirect(url_for('dashboard'))
     except Exception as e: return f"Sim Failed: {e}"
+
+# --- PAYMENT ROUTES ---
+@app.route('/create_order', methods=['POST'])
+@login_required
+def create_order():
+    if not razorpay_client: return jsonify({"error": "Payment Gateway Error"}), 500
+    try:
+        order = razorpay_client.order.create({"amount": 99900, "currency": "INR", "receipt": f"rcpt_{current_user.id}"})
+        return jsonify(order)
+    except Exception as e: return jsonify({"error": str(e)}), 500
+
+@app.route('/verify_payment', methods=['POST'])
+@login_required
+def verify_payment():
+    data = request.json
+    try:
+        razorpay_client.utility.verify_payment_signature({
+            'razorpay_order_id': data['razorpay_order_id'],
+            'razorpay_payment_id': data['razorpay_payment_id'],
+            'razorpay_signature': data['razorpay_signature']
+        })
+        conn = get_db_connection(); cur = conn.cursor()
+        cur.execute("UPDATE users_v6 SET plan_type = 'startup' WHERE id = %s", (current_user.id,))
+        conn.commit(); cur.close(); conn.close()
+        return jsonify({"status": "success"})
+    except: return jsonify({"status": "failed"}), 400
 
 @app.route('/logout')
 @login_required
