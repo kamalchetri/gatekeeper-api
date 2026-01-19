@@ -1,8 +1,8 @@
 import os
 import uuid
 import psycopg2
-import requests  # <--- Used to talk to Discord
-from flask import Flask, request, jsonify, render_template_string, redirect, url_for
+import requests
+from flask import Flask, request, jsonify, render_template_string, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -12,34 +12,71 @@ app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 # --- CONFIGURATION ---
 DISCORD_URL = os.environ.get('DISCORD_WEBHOOK_URL')
 DB_URL = os.environ.get('DATABASE_URL')
-API_KEYS = {"sk_live_12345": "Bank of America Bot"}
 
 
-# --- DISCORD NOTIFICATION SYSTEM ---
-def send_discord_alert(message, color=None):
-    """Sends a message to your phone via Discord."""
-    if not DISCORD_URL: return
+# --- DB HELPERS ---
+def get_db_connection():
+    if not DB_URL: raise ValueError("DATABASE_URL is missing")
+    conn = psycopg2.connect(DB_URL)
+    return conn
 
-    # Simple logic: If color isn't specified, pick based on keywords
-    if not color:
-        if "Approved" in message:
-            color = 5763719  # Green
-        elif "Rejected" in message:
-            color = 15548997  # Red
-        else:
-            color = 3447003  # Blue
 
-    data = {
-        "embeds": [{
-            "description": message,
-            "color": color
-        }]
-    }
+def init_db():
     try:
-        requests.post(DISCORD_URL, json=data)
-    except Exception as e:
-        print(f"❌ Discord Error: {e}")
+        conn = get_db_connection()
+        cur = conn.cursor()
 
+        # 1. NEW Users Table (v2 forces a fresh start)
+        cur.execute("""
+                    CREATE TABLE IF NOT EXISTS users_v2
+                    (
+                        id
+                        SERIAL
+                        PRIMARY
+                        KEY,
+                        username
+                        VARCHAR
+                    (
+                        50
+                    ) UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL
+                        );
+                    """)
+
+        # 2. NEW Transactions Table (v2)
+        cur.execute("""
+                    CREATE TABLE IF NOT EXISTS transactions_v2
+                    (
+                        id
+                        VARCHAR
+                    (
+                        10
+                    ) PRIMARY KEY,
+                        user_id INTEGER REFERENCES users_v2
+                    (
+                        id
+                    ),
+                        source VARCHAR
+                    (
+                        100
+                    ),
+                        description TEXT,
+                        status VARCHAR
+                    (
+                        20
+                    ),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                    """)
+
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"❌ DB Init Error: {e}")
+
+
+if DB_URL: init_db()
 
 # --- LOGIN SETUP ---
 login_manager = LoginManager()
@@ -54,17 +91,12 @@ class User(UserMixin):
         self.password_hash = password_hash
 
 
-def get_db_connection():
-    if not DB_URL: raise ValueError("DATABASE_URL is missing")
-    conn = psycopg2.connect(DB_URL)
-    return conn
-
-
 @login_manager.user_loader
 def load_user(user_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+    # Note: Reading from users_v2 now
+    cur.execute("SELECT * FROM users_v2 WHERE id = %s", (user_id,))
     res = cur.fetchone()
     cur.close()
     conn.close()
@@ -72,64 +104,65 @@ def load_user(user_id):
     return None
 
 
-def init_db():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("""
-                    CREATE TABLE IF NOT EXISTS transactions
-                    (
-                        id
-                        VARCHAR
-                    (
-                        10
-                    ) PRIMARY KEY,
-                        source VARCHAR
-                    (
-                        100
-                    ),
-                        description TEXT,
-                        status VARCHAR
-                    (
-                        20
-                    ),
-                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                        );
-                    """)
-        cur.execute("""
-                    CREATE TABLE IF NOT EXISTS users
-                    (
-                        id
-                        SERIAL
-                        PRIMARY
-                        KEY,
-                        username
-                        VARCHAR
-                    (
-                        50
-                    ) UNIQUE NOT NULL,
-                        password_hash TEXT NOT NULL
-                        );
-                    """)
-        cur.execute("SELECT * FROM users WHERE username = 'admin'")
-        if not cur.fetchone():
-            hashed_pw = generate_password_hash("admin123")
-            cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s)", ('admin', hashed_pw))
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as e:
-        print(f"❌ DB Init Error: {e}")
-
-
-if DB_URL: init_db()
-
-
-def check_api_auth():
-    return request.headers.get('X-API-KEY') in API_KEYS
-
-
 # --- ROUTES ---
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    message = ""
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        hashed_pw = generate_password_hash(password)
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute("INSERT INTO users_v2 (username, password_hash) VALUES (%s, %s) RETURNING id",
+                        (username, hashed_pw))
+            user_id = cur.fetchone()[0]
+            conn.commit()
+            cur.close()
+            conn.close()
+
+            user = User(id=user_id, username=username, password_hash=hashed_pw)
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        except psycopg2.errors.UniqueViolation:
+            message = "❌ Username already taken."
+        except Exception as e:
+            message = f"❌ Error: {e}"
+
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Sign Up | Gatekeeper</title>
+        <style>
+            body { font-family: system-ui, sans-serif; background: #f0f2f5; height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
+            .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); width: 100%; max-width: 320px; text-align: center; }
+            input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+            button { width: 100%; padding: 12px; margin-top: 15px; background: #2ecc71; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+            .link { display: block; margin-top: 15px; color: #007bff; text-decoration: none; font-size: 0.9em; }
+            .error { color: red; margin-bottom: 10px; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <h2>Create Account</h2>
+            <div class="error">{{ message }}</div>
+            <form method="POST">
+                <input type="text" name="username" placeholder="Choose Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Sign Up</button>
+            </form>
+            <a href="/login" class="link">Already have an account? Login</a>
+        </div>
+    </body>
+    </html>
+    """
+    return render_template_string(html, message=message)
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -139,13 +172,13 @@ def login():
         password = request.form['password']
         conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM users WHERE username = %s", (username,))
+        cur.execute("SELECT * FROM users_v2 WHERE username = %s", (username,))
         user_data = cur.fetchone()
         cur.close()
         conn.close()
         if user_data and check_password_hash(user_data[2], password):
-            user_obj = User(id=user_data[0], username=user_data[1], password_hash=user_data[2])
-            login_user(user_obj)
+            user = User(id=user_data[0], username=user_data[1], password_hash=user_data[2])
+            login_user(user)
             return redirect(url_for('dashboard'))
         else:
             message = "❌ Invalid Credentials"
@@ -158,24 +191,23 @@ def login():
         <title>Login | Gatekeeper</title>
         <style>
             body { font-family: system-ui, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100vh; display: flex; align-items: center; justify-content: center; margin: 0; }
-            .login-card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 100%; max-width: 320px; text-align: center; }
-            input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-            button { width: 100%; padding: 12px; margin-top: 15px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; }
-            button:hover { background: #5a67d8; }
-            .error { color: #e53e3e; margin-bottom: 15px; }
-            .brand { font-size: 40px; margin-bottom: 10px; display: block; }
+            .card { background: white; padding: 40px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); width: 100%; max-width: 320px; text-align: center; }
+            input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #e2e8f0; border-radius: 8px; box-sizing: border-box; }
+            button { width: 100%; padding: 12px; margin-top: 15px; background: #667eea; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+            .link { display: block; margin-top: 15px; color: #667eea; text-decoration: none; font-size: 0.9em; }
         </style>
     </head>
     <body>
-        <div class="login-card">
-            <span class="brand">🛡️</span>
+        <div class="card">
+            <span style="font-size:40px;">🛡️</span>
             <h2>Welcome Back</h2>
-            <div class="error">{{ message }}</div>
+            <div style="color:red; margin-bottom:10px;">{{ message }}</div>
             <form method="POST">
                 <input type="text" name="username" placeholder="Username" required>
                 <input type="password" name="password" placeholder="Password" required>
                 <button type="submit">Sign In</button>
             </form>
+            <a href="/register" class="link">New? Create an Account</a>
         </div>
     </body>
     </html>
@@ -195,7 +227,8 @@ def logout():
 def dashboard():
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("SELECT * FROM transactions ORDER BY created_at DESC;")
+    # 🔒 ISOLATION: Reading from transactions_v2
+    cur.execute("SELECT * FROM transactions_v2 WHERE user_id = %s ORDER BY created_at DESC;", (current_user.id,))
     rows = cur.fetchall()
     cur.close()
     conn.close()
@@ -205,49 +238,48 @@ def dashboard():
     <html>
     <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta http-equiv="refresh" content="5">
-        <title>Dashboard | Gatekeeper</title>
+        <title>Dashboard</title>
         <style>
-            :root { --primary: #667eea; --bg: #f7fafc; --text: #2d3748; }
-            body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding-bottom: 40px; }
-            .navbar { background: white; padding: 15px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-            .logo { font-weight: bold; font-size: 1.2rem; }
-            .logout-btn { text-decoration: none; color: #e53e3e; font-weight: 600; font-size: 0.9rem; padding: 8px 12px; border-radius: 6px; }
-            .logout-btn:hover { background: #fff5f5; }
-            .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-            .card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); border: 1px solid #edf2f7; display: flex; flex-direction: column; justify-content: space-between; }
-            h3 { margin: 0 0 10px 0; font-size: 1.1rem; color: #1a202c; }
-            .desc { color: #718096; line-height: 1.5; margin-bottom: 20px; flex-grow: 1; }
-            .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-            .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; width: 100%; transition: opacity 0.2s; }
-            .btn:hover { opacity: 0.9; }
-            .approve { background: #48bb78; color: white; }
-            .reject { background: #f56565; color: white; }
-            a { text-decoration: none; }
-            .status-pill { display: inline-block; padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; width: fit-content; }
-            .status-approved { background: #c6f6d5; color: #276749; }
-            .status-rejected { background: #fed7d7; color: #9b2c2c; }
-            .meta { font-size: 0.75rem; color: #a0aec0; margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 10px; }
+            :root { --primary: #667eea; --bg: #f7fafc; }
+            body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding-bottom: 40px; }
+            .navbar { background: white; padding: 15px 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+            .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+            .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 20px; }
+            .demo-btn { background: #333; color: white; padding: 10px 20px; border-radius: 20px; text-decoration: none; font-size: 0.9em; font-weight: bold; }
+            .status-pill { padding: 5px 10px; border-radius: 15px; font-size: 0.8em; font-weight: bold; }
+            .approved { background: #c6f6d5; color: #276749; }
+            .rejected { background: #fed7d7; color: #9b2c2c; }
+            .btn { padding: 8px 16px; border-radius: 6px; text-decoration: none; color: white; font-weight: bold; margin-right: 5px; }
         </style>
     </head>
     <body>
         <nav class="navbar">
-            <div class="logo">🛡️ Gatekeeper <span style="font-weight:normal; color:#718096; font-size:0.9em;">| {{ user.username }}</span></div>
-            <a href="/logout" class="logout-btn">Log Out</a>
+            <div><b>Gatekeeper</b> | {{ user.username }}</div>
+            <div>
+                <a href="/simulate_demo" class="demo-btn">⚡ Test Alert</a>
+                <a href="/logout" style="margin-left:15px; text-decoration:none; color:red;">Log Out</a>
+            </div>
         </nav>
+
         <div class="container">
+            {% if not rows %}
+                <div style="text-align:center; margin-top:50px; color:#888;">
+                    <h3>No requests yet.</h3>
+                    <p>Click "⚡ Test Alert" above to simulate a bot request!</p>
+                </div>
+            {% endif %}
+
             {% for row in rows %}
             <div class="card">
-                <div><h3>{{ row[1] }}</h3><div class="desc">{{ row[2] }}</div></div>
-                {% if row[3] == 'PENDING' %}
-                    <div class="actions">
-                        <a href="/approve/{{ row[0] }}"><button class="btn approve">Approve</button></a>
-                        <a href="/reject/{{ row[0] }}"><button class="btn reject">Reject</button></a>
-                    </div>
+                <h3>{{ row[2] }}</h3>
+                <p>{{ row[3] }}</p>
+
+                {% if row[4] == 'PENDING' %}
+                    <a href="/approve/{{ row[0] }}" class="btn" style="background:#48bb78;">Approve</a>
+                    <a href="/reject/{{ row[0] }}" class="btn" style="background:#f56565;">Reject</a>
                 {% else %}
-                    <div class="status-pill {{ 'status-approved' if row[3] == 'APPROVED' else 'status-rejected' }}">{{ row[3] }}</div>
+                    <span class="status-pill {{ 'approved' if row[4] == 'APPROVED' else 'rejected' }}">{{ row[4] }}</span>
                 {% endif %}
-                <div class="meta">ID: {{ row[0] }}</div>
             </div>
             {% endfor %}
         </div>
@@ -257,19 +289,31 @@ def dashboard():
     return render_template_string(html, rows=rows, user=current_user)
 
 
+@app.route('/simulate_demo')
+@login_required
+def simulate_demo():
+    conn = get_db_connection()
+    cur = conn.cursor()
+    req_id = str(uuid.uuid4())[:8]
+    # Inserting into transactions_v2
+    cur.execute("INSERT INTO transactions_v2 (id, user_id, source, description, status) VALUES (%s, %s, %s, %s, %s)",
+                (req_id, current_user.id, "Demo Bot", "Requesting $500 for Server Costs", "PENDING"))
+    conn.commit()
+    cur.close()
+    conn.close()
+    return redirect(url_for('dashboard'))
+
+
 @app.route('/approve/<req_id>')
 @login_required
 def approve(req_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE transactions SET status = 'APPROVED' WHERE id = %s", (req_id,))
+    cur.execute("UPDATE transactions_v2 SET status = 'APPROVED' WHERE id = %s AND user_id = %s",
+                (req_id, current_user.id))
     conn.commit()
     cur.close()
     conn.close()
-
-    # 🔔 NOTIFY
-    send_discord_alert(f"✅ **Transaction Approved**\nUser {current_user.username} authorized request {req_id}.")
-
     return redirect(url_for('dashboard'))
 
 
@@ -278,51 +322,12 @@ def approve(req_id):
 def reject(req_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute("UPDATE transactions SET status = 'REJECTED' WHERE id = %s", (req_id,))
+    cur.execute("UPDATE transactions_v2 SET status = 'REJECTED' WHERE id = %s AND user_id = %s",
+                (req_id, current_user.id))
     conn.commit()
     cur.close()
     conn.close()
-
-    # 🔔 NOTIFY
-    send_discord_alert(f"❌ **Transaction Rejected**\nRequest {req_id} was denied by {current_user.username}.")
-
     return redirect(url_for('dashboard'))
-
-
-@app.route('/api/request', methods=['POST'])
-def create_request():
-    if not check_api_auth(): return jsonify({"error": "Unauthorized"}), 401
-
-    req_id = str(uuid.uuid4())[:8]
-    source = API_KEYS[request.headers.get('X-API-KEY')]
-    description = request.json.get("description")
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("INSERT INTO transactions (id, source, description, status) VALUES (%s, %s, %s, %s)",
-                (req_id, source, description, "PENDING"))
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    # 🔔 NOTIFY
-    app_url = request.host_url
-    send_discord_alert(
-        f"🚨 **New Request Incoming!**\n\n**Source:** {source}\n**Info:** {description}\n\n[Click here to Review]({app_url})")
-
-    return jsonify({"id": req_id})
-
-
-@app.route('/api/check/<req_id>')
-def check_status(req_id):
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT status FROM transactions WHERE id = %s", (req_id,))
-    res = cur.fetchone()
-    cur.close()
-    conn.close()
-    if res: return jsonify({"status": res[0]})
-    return jsonify({"status": "UNKNOWN"})
 
 
 if __name__ == '__main__':
