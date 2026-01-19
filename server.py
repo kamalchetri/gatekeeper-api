@@ -6,6 +6,7 @@ import requests
 import secrets
 import traceback
 import razorpay
+import datetime
 from flask import Flask, request, jsonify, render_template_string, redirect, url_for, flash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -79,18 +80,12 @@ def load_user(user_id):
     return None
 
 def send_discord_alert(webhook_url, message, color=None):
-    if not webhook_url: 
-        print("⚠️ No Webhook URL found for user.")
-        return
-    print(f"🚀 Sending Discord Alert to: {webhook_url[:20]}...")
-    try: 
-        resp = requests.post(webhook_url, json={"embeds": [{"description": message, "color": color}]}, timeout=5)
-        print(f"✅ Discord Response: {resp.status_code}")
-    except Exception as e: 
-        print(f"❌ Discord Failed: {e}")
+    if not webhook_url: return
+    try: requests.post(webhook_url, json={"embeds": [{"description": message, "color": color}]}, timeout=5)
+    except: pass
 
 # ===========================
-# === UI ASSETS ===
+# === UI ASSETS (V9.0) ===
 # ===========================
 
 LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-indigo-500"><path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>"""
@@ -102,6 +97,7 @@ BASE_HEAD = """
     <title>VIGIL | Enterprise AI Security</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
@@ -117,9 +113,7 @@ NAVBAR_CONTENT = f"""
     <div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center">
         <a href="/" class="flex items-center gap-3">{LOGO_SVG}<span class="text-xl font-bold tracking-tight text-white">VIGIL</span></a>
         <div class="hidden md:flex gap-8 text-sm font-medium text-slate-400 items-center">
-            <a href="/guide" class="text-indigo-400 font-bold hover:text-indigo-300 transition flex items-center gap-1">
-                <span>📚</span> How to Install
-            </a>
+            <a href="/guide" class="text-indigo-400 font-bold hover:text-indigo-300 transition flex items-center gap-1"><span>📚</span> How to Install</a>
             <a href="/#features" class="hover:text-white transition">Features</a>
             <a href="/#pricing" class="hover:text-white transition">Pricing</a>
             {{% if current_user.is_authenticated %}}
@@ -130,9 +124,7 @@ NAVBAR_CONTENT = f"""
                 <a href="/register" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/20">Get Started</a>
             {{% endif %}}
         </div>
-        <button @click="open = !open" class="md:hidden text-slate-300 focus:outline-none">
-            <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
-        </button>
+        <button @click="open = !open" class="md:hidden text-slate-300 focus:outline-none"><svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
     </div>
     <div x-show="open" @click.away="open = false" class="md:hidden bg-slate-900 border-b border-slate-800 absolute w-full left-0 top-20 shadow-2xl">
         <div class="flex flex-col p-6 gap-4 text-center">
@@ -159,36 +151,12 @@ def landing():
     return render_template_string(f"<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class='antialiased'>{NAVBAR_CONTENT}" + """
         <div class="pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow">
             <div class="max-w-4xl mx-auto">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V8.0 Unified Platform</div>
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V9.0 Analytics Engine</div>
                 <h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight">Security for the <br class="hidden sm:block" /><span class="gradient-text">Generative AI Era.</span></h1>
                 <p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">Stop employees from accidentally pasting API keys and PII into ChatGPT.</p>
-                <div class="flex flex-col sm:flex-row justify-center gap-4 px-4">
-                    <a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Free</a>
-                    <a href="/guide" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">How to Install</a>
-                </div>
+                <div class="flex flex-col sm:flex-row justify-center gap-4 px-4"><a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Free</a><a href="/guide" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">How to Install</a></div>
             </div>
         </div>
-        
-        <section id="features" class="py-24 bg-slate-900/50 border-t border-slate-800">
-            <div class="max-w-7xl mx-auto px-6">
-                <div class="text-center mb-16"><h2 class="text-3xl font-bold text-white mb-4">Enterprise-Grade Protection</h2></div>
-                <div class="grid md:grid-cols-3 gap-8">
-                    <div class="glass p-8 rounded-2xl border-t border-indigo-500/20"><div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">🕵️‍♂️</div><h3 class="text-xl font-bold text-white mb-3">PII Redaction</h3><p class="text-slate-400 text-sm">Automatically detects and blocks Social Security Numbers and Credit Cards.</p></div>
-                    <div class="glass p-8 rounded-2xl border-t border-purple-500/20"><div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">🔑</div><h3 class="text-xl font-bold text-white mb-3">Secret Detection</h3><p class="text-slate-400 text-sm">Prevents leaks of AWS Access Keys and Database Connection Strings.</p></div>
-                    <div class="glass p-8 rounded-2xl border-t border-green-500/20"><div class="w-12 h-12 bg-slate-800 rounded-xl flex items-center justify-center text-2xl mb-6">📜</div><h3 class="text-xl font-bold text-white mb-3">Audit Logs</h3><p class="text-slate-400 text-sm">Permanent record of every blocked attempt for SOC2 compliance.</p></div>
-                </div>
-            </div>
-        </section>
-
-        <section id="pricing" class="py-24 relative">
-            <div class="max-w-7xl mx-auto px-6">
-                <div class="text-center mb-16"><h2 class="text-3xl font-bold text-white mb-4">Simple, Transparent Pricing</h2></div>
-                <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                    <div class="p-8 rounded-3xl border border-slate-800 bg-slate-900/50"><h3 class="text-xl font-bold text-slate-300 mb-2">Developer</h3><div class="text-4xl font-bold text-white mb-6">Free</div><ul class="space-y-4 text-slate-400 mb-8 text-sm"><li class="flex gap-3"><span>✓</span> 100 Scans / month</li><li class="flex gap-3"><span>✓</span> Basic PII Detection</li></ul><a href="/register" class="block w-full py-3 rounded-xl border border-slate-700 text-center font-bold text-white hover:bg-slate-800 transition">Get Started</a></div>
-                    <div class="p-8 rounded-3xl border border-indigo-500/50 bg-indigo-900/10 relative overflow-hidden"><div class="absolute top-0 right-0 bg-indigo-600 text-xs font-bold px-3 py-1 rounded-bl-xl text-white">POPULAR</div><h3 class="text-xl font-bold text-white mb-2">Startup</h3><div class="text-4xl font-bold text-white mb-6">₹999 <span class="text-lg text-slate-400 font-normal">/mo</span></div><ul class="space-y-4 text-slate-300 mb-8 text-sm"><li class="flex gap-3"><span class="text-indigo-400">✓</span> Unlimited Scans</li><li class="flex gap-3"><span class="text-indigo-400">✓</span> Advanced Secret Detection</li></ul><a href="/register" class="block w-full py-3 rounded-xl bg-indigo-600 text-center font-bold text-white hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start 14-Day Trial</a></div>
-                </div>
-            </div>
-        </section>
         <footer class="py-12 text-center text-slate-600 text-sm border-t border-slate-900">&copy; 2026 VIGIL Security.</footer>
     </body></html>""", current_user=current_user)
 
@@ -196,15 +164,11 @@ def landing():
 def guide():
     return render_template_string(f"<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class='bg-slate-950 pb-20'>{NAVBAR_CONTENT}" + """
         <main class="pt-32 max-w-4xl mx-auto px-6">
-            <div class="text-center mb-16">
-                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wide mb-6"><span class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span> Quick Setup</div>
-                <h1 class="text-3xl md:text-5xl font-bold text-white mb-6">How to install <span class="gradient-text">VIGIL Shield</span></h1>
-                <p class="text-slate-400 text-lg">Follow these 3 simple steps to secure your browser in less than 2 minutes.</p>
-            </div>
+            <div class="text-center mb-16"><div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-bold uppercase tracking-wide mb-6"><span class="w-2 h-2 bg-indigo-400 rounded-full animate-pulse"></span> Quick Setup</div><h1 class="text-3xl md:text-5xl font-bold text-white mb-6">How to install <span class="gradient-text">VIGIL Shield</span></h1><p class="text-slate-400 text-lg">Follow these 3 simple steps.</p></div>
             <div class="space-y-8 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-800 before:to-transparent">
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-indigo-500 group-[.is-active]:bg-indigo-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">1</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Download the Shield</h3><p class="text-slate-400 text-sm mb-4">Get the latest version of the extension files.</p><a href="#" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition border border-slate-700"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg> Download .zip</a></div></div>
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-purple-500 group-[.is-active]:bg-purple-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">2</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Load into Chrome</h3><p class="text-slate-400 text-sm mb-2">1. Open <code class="bg-black/50 px-1 py-0.5 rounded text-indigo-300 font-mono text-xs">chrome://extensions</code></p><p class="text-slate-400 text-sm mb-2">2. Toggle <strong>Developer Mode</strong> (Top Right).</p><p class="text-slate-400 text-sm">3. Click <strong>Load Unpacked</strong> and select the unzipped folder.</p></div></div>
-                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-green-500 group-[.is-active]:bg-green-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">3</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Connect & Protect</h3><p class="text-slate-400 text-sm mb-4">Click the VIGIL icon in your toolbar and enter your API Key from the dashboard.</p>{% if current_user.is_authenticated %}<div class="bg-black/50 p-3 rounded-lg border border-slate-800 font-mono text-xs text-green-400 break-all select-all text-center">{{ current_user.api_key }}</div>{% else %}<a href="/login" class="text-indigo-400 text-sm font-bold hover:text-indigo-300">Log in to see your key &rarr;</a>{% endif %}</div></div>
+                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-indigo-500 group-[.is-active]:bg-indigo-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">1</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Download the Shield</h3><p class="text-slate-400 text-sm mb-4">Get the latest extension files.</p><a href="#" class="inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-sm font-bold rounded-lg transition border border-slate-700">Download .zip</a></div></div>
+                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-purple-500 group-[.is-active]:bg-purple-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">2</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Load into Chrome</h3><p class="text-slate-400 text-sm mb-2">Open chrome://extensions, enable Developer Mode, and Load Unpacked.</p></div></div>
+                <div class="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active"><div class="flex items-center justify-center w-10 h-10 rounded-full border border-slate-700 bg-slate-900 group-[.is-active]:border-green-500 group-[.is-active]:bg-green-600 text-slate-500 group-[.is-active]:text-white shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 font-bold">3</div><div class="w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] glass p-6 rounded-2xl border-t border-white/5"><h3 class="font-bold text-white text-lg mb-2">Connect</h3><p class="text-slate-400 text-sm mb-4">Use your API Key:</p>{% if current_user.is_authenticated %}<div class="bg-black/50 p-3 rounded-lg border border-slate-800 font-mono text-xs text-green-400 break-all select-all text-center">{{ current_user.api_key }}</div>{% else %}<a href="/login" class="text-indigo-400 text-sm font-bold hover:text-indigo-300">Log in to view</a>{% endif %}</div></div>
             </div>
         </main>
     </body></html>""", current_user=current_user)
@@ -212,65 +176,117 @@ def guide():
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
 def dashboard():
-    msg_status = None
+    msg = None
     if request.method == 'POST':
         wh = request.form.get('discord_webhook', '').strip()
         try:
-            print(f"DEBUG: Saving Webhook for User {current_user.id}: {wh}")
             conn = get_db_connection(); cur = conn.cursor()
             cur.execute("UPDATE users_v6 SET discord_webhook = %s WHERE id = %s", (wh, current_user.id))
             conn.commit(); cur.close(); conn.close()
-            msg_status = "✅ Settings Saved Successfully"
-        except Exception as e:
-            print(f"DEBUG ERROR: {e}"); msg_status = f"❌ Error Saving: {e}"
+            msg = "✅ Settings Saved"
+        except Exception as e: msg = f"❌ Error: {e}"
 
     conn = get_db_connection(); cur = conn.cursor()
+    # 1. Get Transactions
     cur.execute("SELECT * FROM transactions_v6 WHERE user_id = %s ORDER BY created_at DESC LIMIT 20;", (current_user.id,))
-    rows = cur.fetchall(); cur.close(); conn.close()
+    rows = cur.fetchall()
+    
+    # 2. Analytics Calculation
+    cur.execute("SELECT COUNT(*) FROM transactions_v6 WHERE user_id = %s", (current_user.id,)); total_scans = cur.fetchone()[0]
+    cur.execute("SELECT COUNT(*) FROM transactions_v6 WHERE user_id = %s AND status='BLOCKED'", (current_user.id,)); total_blocked = cur.fetchone()[0]
+    protection_rate = int((total_blocked / total_scans * 100) if total_scans > 0 else 100)
+    
+    # 3. Chart Data (Last 7 Days)
+    cur.execute("""
+        SELECT DATE(created_at) as date, COUNT(*) 
+        FROM transactions_v6 
+        WHERE user_id = %s AND created_at > current_date - interval '7 days'
+        GROUP BY date ORDER BY date
+    """, (current_user.id,))
+    chart_rows = cur.fetchall()
+    chart_labels = [r[0].strftime('%b %d') for r in chart_rows]
+    chart_data = [r[1] for r in chart_rows]
+    
+    cur.close(); conn.close()
     
     return render_template_string(f"<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class='bg-slate-950 pb-20'>{NAVBAR_CONTENT}" + """
         <main class="pt-32 max-w-7xl mx-auto px-6">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                <div><h2 class="text-2xl font-bold text-white">Security Dashboard</h2><p class="text-slate-400 text-sm">Manage your API keys and monitor threats.</p></div>
+                <div><h2 class="text-2xl font-bold text-white">Security Command Center</h2><p class="text-slate-400 text-sm">Real-time threat monitoring.</p></div>
                 <div class="flex gap-3"><a href="/simulate_leak" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 flex items-center gap-2 transition"><span>⚠️</span> Simulate Leak</a></div>
             </div>
 
-            {% if msg %}
-            <div class="mb-6 p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-bold text-center animate-pulse">{{ msg }}</div>
-            {% endif %}
+            {% if msg %}<div class="mb-6 p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-bold text-center animate-pulse">{{ msg }}</div>{% endif %}
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                <div class="glass p-6 rounded-2xl border-t border-indigo-500/20 relative overflow-hidden">
-                    <div class="text-indigo-400 text-xs font-bold uppercase tracking-wider mb-2">Your API Key</div>
-                    <div class="font-mono text-sm text-white bg-slate-950/50 p-4 rounded-xl border border-slate-800 break-all select-all mb-2">{{ user.api_key }}</div>
-                    <p class="text-slate-500 text-xs">Update your Chrome Extension with this new key.</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="glass p-6 rounded-2xl border-t border-white/10">
+                    <div class="text-slate-400 text-xs font-bold uppercase mb-2">Total Scans</div>
+                    <div class="text-4xl font-bold text-white">{{ total_scans }}</div>
                 </div>
-                <div class="glass p-6 rounded-2xl border-t border-purple-500/20 relative overflow-hidden">
-                    <div class="text-purple-400 text-xs font-bold uppercase tracking-wider mb-2">Discord Alerts</div>
-                    <form method="POST" class="mt-2"><div class="flex gap-2"><input type="text" name="discord_webhook" value="{{ user.discord_webhook or '' }}" placeholder="Paste Discord Webhook URL..." class="w-full bg-slate-950/50 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500 placeholder-slate-600 transition"><button class="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl text-sm font-bold transition shadow-lg shadow-purple-500/20">Save</button></div></form>
+                <div class="glass p-6 rounded-2xl border-t border-red-500/20">
+                    <div class="text-red-400 text-xs font-bold uppercase mb-2">Threats Blocked</div>
+                    <div class="text-4xl font-bold text-white">{{ total_blocked }}</div>
+                </div>
+                <div class="glass p-6 rounded-2xl border-t border-green-500/20">
+                    <div class="text-green-400 text-xs font-bold uppercase mb-2">Protection Rate</div>
+                    <div class="text-4xl font-bold text-white">{{ protection_rate }}%</div>
                 </div>
             </div>
 
-            <div class="mb-4 flex items-center gap-3"><h3 class="text-lg font-bold text-white">Recent Activity</h3><span class="px-2 py-1 bg-green-500/10 text-green-400 text-xs font-bold rounded-full border border-green-500/20 flex items-center gap-2"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Live</span></div>
+            <div class="glass p-6 rounded-2xl border-t border-white/10 mb-8">
+                <h3 class="text-lg font-bold text-white mb-4">Activity Trend (7 Days)</h3>
+                <div class="h-64"><canvas id="activityChart"></canvas></div>
+            </div>
 
-            <div class="space-y-3">
-                {% if not rows %}<div class="text-center py-12 rounded-2xl border border-dashed border-slate-800"><div class="text-4xl mb-4 opacity-50">🛡️</div><p class="text-slate-400">No threats detected yet.</p></div>{% endif %}
-                {% for row in rows %}
-                <div class="glass rounded-xl p-5 border-l-[4px] transition hover:bg-slate-800/50 {{ 'border-red-500' if row[5] > 70 else 'border-green-500' }}">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div class="flex-1 min-w-0">
-                            <div class="flex items-center gap-3 mb-2"><span class="font-bold text-white text-sm">{{ row[2] }}</span><span class="text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider {{ 'bg-red-500/20 text-red-400' if row[4] == 'BLOCKED' else 'bg-green-500/20 text-green-400' }}">{{ row[4] }}</span></div>
-                            <div class="font-mono text-xs text-slate-300 break-all bg-black/30 p-2 rounded border border-white/5">"{{ row[3] }}"</div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2">
+                    <h3 class="text-lg font-bold text-white mb-4">Recent Events</h3>
+                    <div class="space-y-3">
+                        {% if not rows %}<div class="text-center py-12 rounded-2xl border border-dashed border-slate-800"><p class="text-slate-400">No events yet.</p></div>{% endif %}
+                        {% for row in rows %}
+                        <div class="glass rounded-xl p-4 border-l-[4px] {{ 'border-red-500' if row[5] > 70 else 'border-green-500' }}">
+                            <div class="flex justify-between items-center mb-2"><span class="font-bold text-white text-sm">{{ row[2] }}</span><span class="text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider {{ 'bg-red-500/20 text-red-400' if row[4] == 'BLOCKED' else 'bg-green-500/20 text-green-400' }}">{{ row[4] }}</span></div>
+                            <div class="bg-black/30 p-2 rounded border border-white/5 font-mono text-xs text-slate-300 break-all mb-2">"{{ row[3] }}"</div>
+                            <div class="flex justify-between text-xs text-slate-500"><span>Score: {{ row[5] }}</span><span>{{ row[7].strftime('%H:%M') }}</span></div>
                         </div>
-                        <div class="flex items-center gap-6 text-xs text-slate-500 whitespace-nowrap"><div class="flex flex-col items-end"><span class="uppercase font-bold text-[10px] tracking-wide mb-0.5">Risk Score</span><span class="text-sm font-bold {{ 'text-red-400' if row[5] > 70 else 'text-green-400' }}">{{ row[5] }}/100</span></div><div class="flex flex-col items-end"><span class="uppercase font-bold text-[10px] tracking-wide mb-0.5">Time</span><span>{{ row[7].strftime('%H:%M') }}</span></div></div>
+                        {% endfor %}
                     </div>
                 </div>
-                {% endfor %}
+
+                <div class="space-y-6">
+                    <div class="glass p-6 rounded-2xl border-t border-indigo-500/20">
+                        <div class="text-indigo-400 text-xs font-bold uppercase mb-2">API Key</div>
+                        <div class="font-mono text-xs text-white bg-black/50 p-3 rounded border border-slate-800 break-all select-all">{{ user.api_key }}</div>
+                    </div>
+                    <div class="glass p-6 rounded-2xl border-t border-purple-500/20">
+                        <div class="text-purple-400 text-xs font-bold uppercase mb-2">Discord Webhook</div>
+                        <form method="POST"><input type="text" name="discord_webhook" value="{{ user.discord_webhook or '' }}" class="w-full bg-black/50 border border-slate-800 rounded px-3 py-2 text-xs text-white mb-2" placeholder="https://discord.com..."><button class="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded text-xs font-bold">Save</button></form>
+                    </div>
+                </div>
             </div>
         </main>
-    </body></html>""", user=current_user, rows=rows, current_user=current_user, msg=msg_status)
-
-AUTH_LAYOUT = f"""<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8"><div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-8"><div class="mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4">{LOGO_SVG}</div><h2 class="text-3xl font-extrabold text-white">VIGIL</h2><p class="mt-2 text-sm text-slate-400">Enterprise AI Security</p></div><div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md"><div class="glass py-8 px-6 shadow rounded-2xl sm:px-10">CONTENT_PLACEHOLDER</div></div></body></html>"""
+        <script>
+            const ctx = document.getElementById('activityChart');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: {{ chart_labels | tojson }},
+                    datasets: [{
+                        label: 'Scans',
+                        data: {{ chart_data | tojson }},
+                        borderColor: '#6366f1',
+                        backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                        tension: 0.4, fill: true
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { grid: { color: 'rgba(255,255,255,0.05)' } }, x: { grid: { display: false } } }
+                }
+            });
+        </script>
+    </body></html>""", user=current_user, rows=rows, current_user=current_user, msg=msg, total_scans=total_scans, total_blocked=total_blocked, protection_rate=protection_rate, chart_labels=chart_labels, chart_data=chart_data)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -305,12 +321,7 @@ def firewall_api():
     data = request.json; prompt = data.get("prompt", ""); source = data.get("source", "Extension"); req_id = str(uuid.uuid4())[:8]
     score, reason = analyze_security_risk(prompt); status = "BLOCKED" if score > 70 else "ALLOWED"
     cur.execute("INSERT INTO transactions_v6 (id, user_id, source, description, status, risk_score, risk_reason) VALUES (%s,%s,%s,%s,%s,%s,%s)", (req_id, u[0], source, prompt, status, score, reason)); conn.commit(); cur.close(); conn.close()
-    
-    # DEBUG: Force print to console
-    print(f"DEBUG: Processing Scan. Status: {status}, Score: {score}")
-    if status == "BLOCKED": 
-        send_discord_alert(u[3], f"🚨 **BLOCKED**\nUser: {source}\nReason: {reason}", 15548997)
-    
+    if status == "BLOCKED": send_discord_alert(u[3], f"🚨 **BLOCKED**\nUser: {source}\nReason: {reason}", 15548997)
     return jsonify({"status": status, "risk_score": score, "reason": reason})
 
 @app.route('/simulate_leak')
@@ -320,44 +331,14 @@ def simulate_leak():
         source = "Test_User"; prompt = "Debug: AWS_KEY = 'AKIA_TEST_12345';"
         score, reason = analyze_security_risk(prompt); status = "BLOCKED" if score > 70 else "ALLOWED"
         conn = get_db_connection(); cur = conn.cursor(); cur.execute("INSERT INTO transactions_v6 (id, user_id, source, description, status, risk_score, risk_reason) VALUES (%s,%s,%s,%s,%s,%s,%s)", (str(uuid.uuid4())[:8], current_user.id, source, prompt, status, score, reason)); conn.commit(); cur.close(); conn.close()
-        
-        # DEBUG: Force print to console
-        print("DEBUG: Simulating Leak...")
-        if status == "BLOCKED":
-            # Use current_user.discord_webhook directly to avoid stale data
-            send_discord_alert(current_user.discord_webhook, f"🚨 **BLOCKED**\nUser: {source}\nReason: {reason}", 15548997)
-            
+        if status == "BLOCKED": send_discord_alert(current_user.discord_webhook, f"🚨 **BLOCKED**\nUser: {source}\nReason: {reason}", 15548997)
         return redirect(url_for('dashboard'))
     except Exception as e: return f"Sim Failed: {e}"
-
-# --- PAYMENT ROUTES ---
-@app.route('/create_order', methods=['POST'])
-@login_required
-def create_order():
-    if not razorpay_client: return jsonify({"error": "Payment Gateway Error"}), 500
-    try:
-        order = razorpay_client.order.create({"amount": 99900, "currency": "INR", "receipt": f"rcpt_{current_user.id}"})
-        return jsonify(order)
-    except Exception as e: return jsonify({"error": str(e)}), 500
-
-@app.route('/verify_payment', methods=['POST'])
-@login_required
-def verify_payment():
-    data = request.json
-    try:
-        razorpay_client.utility.verify_payment_signature({
-            'razorpay_order_id': data['razorpay_order_id'],
-            'razorpay_payment_id': data['razorpay_payment_id'],
-            'razorpay_signature': data['razorpay_signature']
-        })
-        conn = get_db_connection(); cur = conn.cursor()
-        cur.execute("UPDATE users_v6 SET plan_type = 'startup' WHERE id = %s", (current_user.id,))
-        conn.commit(); cur.close(); conn.close()
-        return jsonify({"status": "success"})
-    except: return jsonify({"status": "failed"}), 400
 
 @app.route('/logout')
 @login_required
 def logout_route(): logout_user(); return redirect(url_for('landing'))
+
+AUTH_LAYOUT = f"""<!DOCTYPE html><html lang='en'>{BASE_HEAD}<body class="min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8"><div class="sm:mx-auto sm:w-full sm:max-w-md text-center mb-8"><div class="mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4">{LOGO_SVG}</div><h2 class="text-3xl font-extrabold text-white">VIGIL</h2><p class="mt-2 text-sm text-slate-400">Enterprise AI Security</p></div><div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md"><div class="glass py-8 px-6 shadow rounded-2xl sm:px-10">CONTENT_PLACEHOLDER</div></div></body></html>"""
 
 if __name__ == '__main__': app.run(port=5000)
