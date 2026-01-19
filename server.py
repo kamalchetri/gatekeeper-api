@@ -6,12 +6,12 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')  # Needed for sessions
+app.secret_key = os.environ.get('SECRET_KEY', 'default_secret_key')
 
 # --- LOGIN CONFIGURATION ---
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'  # Where to send unauth users
+login_manager.login_view = 'login'
 
 # --- DATABASE CONNECTION ---
 DB_URL = os.environ.get('DATABASE_URL')
@@ -23,7 +23,7 @@ def get_db_connection():
     return conn
 
 
-# --- USER CLASS (Required by Flask-Login) ---
+# --- USER CLASS ---
 class User(UserMixin):
     def __init__(self, id, username, password_hash):
         self.id = id
@@ -48,7 +48,7 @@ def init_db():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        # 1. Transactions Table
+        # Transactions Table
         cur.execute("""
                     CREATE TABLE IF NOT EXISTS transactions
                     (
@@ -70,7 +70,7 @@ def init_db():
                         );
                     """)
 
-        # 2. Users Table (For Login)
+        # Users Table
         cur.execute("""
                     CREATE TABLE IF NOT EXISTS users
                     (
@@ -87,17 +87,15 @@ def init_db():
                         );
                     """)
 
-        # 3. Create Default Admin (if not exists)
+        # Default Admin
         cur.execute("SELECT * FROM users WHERE username = 'admin'")
         if not cur.fetchone():
-            print("👤 Creating default admin user...")
-            hashed_pw = generate_password_hash("admin123")  # <--- DEFAULT PASSWORD
+            hashed_pw = generate_password_hash("admin123")
             cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s)", ('admin', hashed_pw))
 
         conn.commit()
         cur.close()
         conn.close()
-        print("✅ Database & Admin Ready.")
     except Exception as e:
         print(f"❌ DB Init Error: {e}")
 
@@ -132,26 +130,75 @@ def login():
             login_user(user_obj)
             return redirect(url_for('dashboard'))
         else:
-            message = "❌ Invalid Username or Password"
+            message = "❌ Invalid Credentials"
 
+    # --- NEW DESIGNER LOGIN PAGE ---
     html = """
-    <style>
-        body{font-family:'Segoe UI', sans-serif; display:flex; justify-content:center; align-items:center; height:100vh; background:#f0f2f5; margin:0;}
-        .login-card{background:white; padding:40px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.1); width:300px; text-align:center;}
-        input{width:100%; padding:10px; margin:10px 0; border:1px solid #ddd; border-radius:5px; box-sizing:border-box;}
-        button{width:100%; padding:10px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;}
-        button:hover{background:#0056b3;}
-        .error{color:red; margin-bottom:10px;}
-    </style>
-    <div class="login-card">
-        <h2>🔒 Gatekeeper Login</h2>
-        <div class="error">{{ message }}</div>
-        <form method="POST">
-            <input type="text" name="username" placeholder="Username" required>
-            <input type="password" name="password" placeholder="Password" required>
-            <button type="submit">Login</button>
-        </form>
-    </div>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Login | Gatekeeper</title>
+        <style>
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+            }
+            .login-card {
+                background: white;
+                padding: 40px;
+                border-radius: 16px;
+                box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                width: 100%;
+                max-width: 320px;
+                text-align: center;
+            }
+            h2 { margin-top: 0; color: #333; }
+            input {
+                width: 100%;
+                padding: 12px;
+                margin: 8px 0;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                box-sizing: border-box;
+                font-size: 16px;
+            }
+            button {
+                width: 100%;
+                padding: 12px;
+                margin-top: 15px;
+                background: #667eea;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: background 0.3s;
+            }
+            button:hover { background: #5a67d8; }
+            .error { color: #e53e3e; margin-bottom: 15px; font-size: 0.9em; }
+            .brand { font-size: 40px; margin-bottom: 10px; display: block; }
+        </style>
+    </head>
+    <body>
+        <div class="login-card">
+            <span class="brand">🛡️</span>
+            <h2>Welcome Back</h2>
+            <div class="error">{{ message }}</div>
+            <form method="POST">
+                <input type="text" name="username" placeholder="Username" required>
+                <input type="password" name="password" placeholder="Password" required>
+                <button type="submit">Sign In</button>
+            </form>
+        </div>
+    </body>
+    </html>
     """
     return render_template_string(html, message=message)
 
@@ -164,7 +211,7 @@ def logout():
 
 
 @app.route('/')
-@login_required  # <--- THIS PROTECTS THE DASHBOARD
+@login_required
 def dashboard():
     conn = get_db_connection()
     cur = conn.cursor()
@@ -173,38 +220,145 @@ def dashboard():
     cur.close()
     conn.close()
 
+    # --- NEW RESPONSIVE DASHBOARD ---
     html = """
-    <meta http-equiv="refresh" content="5">
-    <style>
-        body{font-family:'Segoe UI', sans-serif; padding:2rem; text-align:center; background:#f4f4f9;}
-        .card{background:white; padding:25px; margin:20px auto; max-width:500px; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.1);}
-        .btn{padding:10px 20px; border:none; border-radius:6px; cursor:pointer; font-weight:bold; margin:5px;}
-        .logout{position:absolute; top:20px; right:20px; text-decoration:none; color:#e74c3c; font-weight:bold;}
-    </style>
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta http-equiv="refresh" content="5">
+        <title>Dashboard | Gatekeeper</title>
+        <style>
+            :root { --primary: #667eea; --bg: #f7fafc; --text: #2d3748; }
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                margin: 0;
+                padding-bottom: 40px;
+            }
 
-    <a href="/logout" class="logout">Log Out</a>
-    <h1>🛡️ Gatekeeper Admin</h1>
-    <p>Logged in as: <b>{{ user.username }}</b></p>
+            /* Navbar */
+            .navbar {
+                background: white;
+                padding: 15px 20px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                position: sticky;
+                top: 0;
+                z-index: 100;
+            }
+            .logo { font-weight: bold; font-size: 1.2rem; display: flex; align-items: center; gap: 8px; }
+            .logout-btn {
+                text-decoration: none;
+                color: #e53e3e;
+                font-weight: 600;
+                font-size: 0.9rem;
+                padding: 8px 12px;
+                border-radius: 6px;
+                transition: background 0.2s;
+            }
+            .logout-btn:hover { background: #fff5f5; }
 
-    {% for row in rows %}
-        <div class="card">
-            <h3>{{ row[1] }}</h3>
-            <p>{{ row[2] }}</p>
-            {% if row[3] == 'PENDING' %}
-                <a href="/approve/{{ row[0] }}"><button class="btn" style="background:#2ecc71; color:white;">✅ APPROVE</button></a>
-                <a href="/reject/{{ row[0] }}"><button class="btn" style="background:#e74c3c; color:white;">❌ REJECT</button></a>
-            {% else %}
-                <p>Status: <b>{{ row[3] }}</b></p>
-            {% endif %}
-            <p style="font-size:0.7em; color:#888;">ID: {{ row[0] }}</p>
+            /* Grid Layout */
+            .container {
+                max-width: 1000px;
+                margin: 30px auto;
+                padding: 0 20px;
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                gap: 20px;
+            }
+
+            /* Cards */
+            .card {
+                background: white;
+                padding: 24px;
+                border-radius: 12px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+                border: 1px solid #edf2f7;
+                transition: transform 0.2s, box-shadow 0.2s;
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+            }
+            .card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px rgba(0,0,0,0.05); }
+
+            h3 { margin: 0 0 10px 0; font-size: 1.1rem; color: #1a202c; }
+            .desc { color: #718096; line-height: 1.5; margin-bottom: 20px; flex-grow: 1; }
+            .meta { font-size: 0.75rem; color: #a0aec0; margin-top: 15px; border-top: 1px solid #edf2f7; padding-top: 10px; }
+
+            /* Buttons */
+            .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+            .btn {
+                padding: 12px;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                font-size: 0.9rem;
+                transition: opacity 0.2s;
+                width: 100%;
+            }
+            .btn:hover { opacity: 0.9; }
+            .approve { background: #48bb78; color: white; }
+            .reject { background: #f56565; color: white; }
+            a { text-decoration: none; }
+
+            /* Status Pills */
+            .status-pill {
+                display: inline-block;
+                padding: 6px 12px;
+                border-radius: 20px;
+                font-size: 0.8rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                width: fit-content;
+            }
+            .status-approved { background: #c6f6d5; color: #276749; }
+            .status-rejected { background: #fed7d7; color: #9b2c2c; }
+        </style>
+    </head>
+    <body>
+        <nav class="navbar">
+            <div class="logo">🛡️ Gatekeeper <span style="font-weight:normal; color:#718096; font-size:0.9em;">| {{ user.username }}</span></div>
+            <a href="/logout" class="logout-btn">Log Out</a>
+        </nav>
+
+        <div class="container">
+            {% for row in rows %}
+            <div class="card">
+                <div>
+                    <h3>{{ row[1] }}</h3>
+                    <div class="desc">{{ row[2] }}</div>
+                </div>
+
+                {% if row[3] == 'PENDING' %}
+                    <div class="actions">
+                        <a href="/approve/{{ row[0] }}"><button class="btn approve">Approve</button></a>
+                        <a href="/reject/{{ row[0] }}"><button class="btn reject">Reject</button></a>
+                    </div>
+                {% else %}
+                    <div class="status-pill {{ 'status-approved' if row[3] == 'APPROVED' else 'status-rejected' }}">
+                        {{ row[3] }}
+                    </div>
+                {% endif %}
+
+                <div class="meta">Transaction ID: {{ row[0] }}</div>
+            </div>
+            {% endfor %}
         </div>
-    {% endfor %}
+    </body>
+    </html>
     """
     return render_template_string(html, rows=rows, user=current_user)
 
 
 @app.route('/approve/<req_id>')
-@login_required  # <--- PROTECTED
+@login_required
 def approve(req_id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -216,7 +370,7 @@ def approve(req_id):
 
 
 @app.route('/reject/<req_id>')
-@login_required  # <--- PROTECTED
+@login_required
 def reject(req_id):
     conn = get_db_connection()
     cur = conn.cursor()
@@ -229,7 +383,6 @@ def reject(req_id):
 
 @app.route('/api/request', methods=['POST'])
 def create_request():
-    # API IS NOT PASSWORD PROTECTED (It uses API Key)
     if not check_api_auth(): return jsonify({"error": "Unauthorized"}), 401
 
     req_id = str(uuid.uuid4())[:8]
