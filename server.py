@@ -51,12 +51,12 @@ def init_db():
 
 if DB_URL: init_db()
 
-# --- VIGIL BRAIN (REDACTION ENABLED) ---
+# --- VIGIL BRAIN ---
 def analyze_security_risk(prompt_text, user_id):
     # 1. Speed Skip
     if len(prompt_text) < 10: return 0, "Safe (Short)", "None", prompt_text
 
-    # 2. Watchlist Check (With Redaction)
+    # 2. Watchlist Check
     try:
         conn = get_db_connection(); cur = conn.cursor()
         cur.execute("""SELECT keyword FROM watchlist_v7 WHERE user_id = %s OR user_id = (SELECT manager_id FROM users_v7 WHERE id = %s)""", (user_id, user_id))
@@ -67,10 +67,11 @@ def analyze_security_risk(prompt_text, user_id):
                 return 100, f"Banned keyword: {row[0]}", "This word is on your blocklist.", redacted
     except: pass
 
-    # 3. AI Check (With Redaction)
+    # 3. AI Check
     if not openai_client: return 0, "AI Not Configured", "Contact Admin.", prompt_text
     try:
-        system_prompt = "You are VIGIL. Analyze input for keys/PII. Return JSON: { \"risk_score\": 0-100, \"risk_reason\": \"text\", \"coaching_tip\": \"text\", \"redacted_text\": \"text with [REDACTED]\" }."
+        # Prompt explicitly asks for "risk_reason"
+        system_prompt = "You are VIGIL. Analyze input for keys/PII. Return JSON: { \"risk_score\": 0-100, \"risk_reason\": \"Short explanation (max 10 words)\", \"coaching_tip\": \"text\", \"redacted_text\": \"text with [REDACTED]\" }."
         response = openai_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Scan: {prompt_text}"}], response_format={ "type": "json_object" })
         result = json.loads(response.choices[0].message.content)
         return result.get('risk_score', 0), result.get('risk_reason', "Safe"), result.get('coaching_tip', "No issues."), result.get('redacted_text', prompt_text)
@@ -97,7 +98,7 @@ def send_discord_alert(webhook_url, message, color=None):
     except: pass
 
 # ===========================
-# === UI VARIABLES ===
+# === UI COMPONENTS ===
 # ===========================
 
 LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-indigo-500"><path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>"""
@@ -123,7 +124,7 @@ NAVBAR_HTML = """<nav x-data="{ open: false }" class="fixed w-full z-50 glass bo
 
 FOOTER_HTML = """<footer class="py-12 text-center text-slate-600 text-sm border-t border-slate-900"><div class="flex flex-col md:flex-row justify-center items-center gap-4"><span>&copy; 2026 VIGIL Security.</span><a href="/guide" class="text-slate-500 hover:text-indigo-400">Installation</a></div></footer>"""
 
-LANDING_HTML = """<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='antialiased'>{{ navbar|safe }}<div class="pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow"><div class="max-w-4xl mx-auto"><div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V14.0 Redaction Engine</div><h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight">Security for the <br class="hidden sm:block" /><span class="gradient-text">Generative AI Era.</span></h1><p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">Stop employees from accidentally pasting API keys and PII into ChatGPT.</p><div class="flex flex-col sm:flex-row justify-center gap-4 px-4"><a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Team Free</a><a href="/guide" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">How to Install</a></div></div></div>{{ footer|safe }}</body></html>"""
+LANDING_HTML = """<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='antialiased'>{{ navbar|safe }}<div class="pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow"><div class="max-w-4xl mx-auto"><div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V14.1 Fixed API</div><h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight">Security for the <br class="hidden sm:block" /><span class="gradient-text">Generative AI Era.</span></h1><p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">Stop employees from accidentally pasting API keys and PII into ChatGPT.</p><div class="flex flex-col sm:flex-row justify-center gap-4 px-4"><a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Team Free</a><a href="/guide" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">How to Install</a></div></div></div>{{ footer|safe }}</body></html>"""
 
 GUIDE_HTML = """<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='bg-slate-950 pb-20'>{{ navbar|safe }}<main class='pt-32 max-w-4xl mx-auto px-6'><h1 class='text-3xl md:text-5xl font-bold text-white mb-6 text-center'>How to install <span class='gradient-text'>VIGIL Shield</span></h1><div class='space-y-4'><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>1. Download</h3><p class='text-slate-400 text-sm'>Download the .zip file of the extension.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>2. Load</h3><p class='text-slate-400 text-sm'>Load unpacked in chrome://extensions.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>3. Connect</h3><p class='text-slate-400 text-sm'>Enter your API Key.</p></div></div></main>{{ footer|safe }}</body></html>"""
 
@@ -226,8 +227,9 @@ def firewall_api():
     cur.execute("INSERT INTO transactions_v7 (id, user_id, source, description, status, risk_score, risk_reason) VALUES (%s,%s,%s,%s,%s,%s,%s)", (req_id, u[0], source, prompt, status, score, reason))
     conn.commit(); cur.close(); conn.close()
     
+    # Send Key: "risk_reason" (matches Extension)
     if status == "BLOCKED": send_discord_alert(u[3], f"🚨 **BLOCKED**\nUser: {source}\nReason: {reason}", 15548997)
-    return jsonify({"status": status, "risk_score": score, "reason": reason, "coaching_tip": tip, "redacted_text": redacted})
+    return jsonify({"status": status, "risk_score": score, "risk_reason": reason, "coaching_tip": tip, "redacted_text": redacted})
 
 @app.route('/simulate_leak')
 @login_required
