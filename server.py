@@ -51,8 +51,13 @@ def init_db():
 
 if DB_URL: init_db()
 
-# --- VIGIL BRAIN ---
+# --- VIGIL BRAIN (OPTIMIZED) ---
 def analyze_security_risk(prompt_text, user_id):
+    # SPEED HACK: Skip scan if text is too short (likely just typing)
+    if len(prompt_text) < 10:
+        return 0, "Safe (Too short)", "No coaching needed."
+
+    # 1. WATCHLIST CHECK
     try:
         conn = get_db_connection(); cur = conn.cursor()
         cur.execute("""SELECT keyword FROM watchlist_v7 WHERE user_id = %s OR user_id = (SELECT manager_id FROM users_v7 WHERE id = %s)""", (user_id, user_id))
@@ -61,6 +66,7 @@ def analyze_security_risk(prompt_text, user_id):
             if row[0].lower() in prompt_text.lower(): return 100, f"Banned keyword: {row[0]}", "This word is on your blocklist."
     except: pass
 
+    # 2. AI CHECK
     if not openai_client: return 0, "AI Not Configured", "Contact Admin."
     try:
         system_prompt = "You are VIGIL. Analyze input for keys/PII. Return JSON: { \"risk_score\": 0-100, \"risk_reason\": \"text\", \"coaching_tip\": \"text\" }."
@@ -90,7 +96,7 @@ def send_discord_alert(webhook_url, message, color=None):
     except: pass
 
 # ===========================
-# === UI COMPONENTS ===
+# === UI VARIABLES ===
 # ===========================
 
 LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-indigo-500"><path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>"""
@@ -99,7 +105,7 @@ BASE_HEAD = """
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VIGIL Teams | Enterprise Security</title>
+    <title>VIGIL | Enterprise Security</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -107,6 +113,7 @@ BASE_HEAD = """
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
         .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-hover:hover { background: rgba(30, 41, 59, 0.9); border-color: rgba(99, 102, 241, 0.5); }
         .hero-glow { background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%); }
         .gradient-text { background: linear-gradient(135deg, #fff 0%, #94a3b8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     </style>
@@ -122,7 +129,6 @@ NAVBAR_TEMPLATE = """
                 <a href="/dashboard" class="text-white hover:text-indigo-400 transition">Dashboard</a>
                 <a href="/logout" class="px-4 py-2 bg-slate-800 text-white rounded-lg font-bold hover:bg-slate-700 transition">Log Out</a>
             {% else %}
-                <a href="/guide" class="text-indigo-400 font-bold hover:text-indigo-300 transition flex items-center gap-1"><span>📚</span> Install</a>
                 <a href="/login" class="text-slate-300 hover:text-white transition">Log in</a>
                 <a href="/register" class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-500 transition">Get Started</a>
             {% endif %}
@@ -143,29 +149,144 @@ NAVBAR_TEMPLATE = """
 </nav>
 """
 
-FOOTER = """<footer class="py-12 text-center text-slate-600 text-sm border-t border-slate-900"><div class="flex flex-col md:flex-row justify-center items-center gap-4"><span>&copy; 2026 VIGIL Security.</span><a href="/privacy" class="text-slate-500 hover:text-indigo-400 transition">Privacy Policy</a><a href="/guide" class="text-slate-500 hover:text-indigo-400 transition">Installation</a></div></footer>"""
+DASHBOARD_HTML = """
+<!DOCTYPE html><html lang='en'>
+{{ base_head|safe }}
+<body class='bg-slate-950 pb-20'>
+{{ navbar|safe }}
+<main class='pt-32 max-w-7xl mx-auto px-6'>
+    
+    <div class='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'>
+        <div>
+            <h2 class='text-3xl font-extrabold text-white tracking-tight'>Mission Control</h2>
+            <p class='text-slate-400 text-sm mt-1'>Team Status: <span class="text-green-400 font-bold">Active</span> • {{ member_count }} Agents</p>
+        </div>
+        <div class='flex gap-3'>
+            <a href='/export_logs' class='glass hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold border border-slate-700 transition flex items-center gap-2'><span>📥</span> Report</a>
+            <a href='/simulate_leak' class='bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition'><span>🚀</span> Test Scan</a>
+        </div>
+    </div>
+
+    {% if msg %}
+    <div class='mb-8 p-4 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 font-bold text-center flex items-center justify-center gap-2'>
+        <span>✅</span> {{ msg }}
+    </div>
+    {% endif %}
+    
+    <div class='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
+        <div class='glass p-6 rounded-2xl border-t border-indigo-500/20'>
+            <div class='text-indigo-400 text-xs font-bold uppercase mb-2'>Total Scans</div>
+            <div class='text-4xl font-extrabold text-white'>{{ total_scans }}</div>
+        </div>
+        <div class='glass p-6 rounded-2xl border-t border-red-500/20'>
+            <div class='text-red-400 text-xs font-bold uppercase mb-2'>Threats Neutralized</div>
+            <div class='text-4xl font-extrabold text-white'>{{ total_blocked }}</div>
+        </div>
+        <div class='glass p-6 rounded-2xl border-t border-green-500/20'>
+            <div class='text-green-400 text-xs font-bold uppercase mb-2'>Safety Score</div>
+            <div class='text-4xl font-extrabold text-white'>{{ rate }}%</div>
+        </div>
+        <div class='glass p-6 rounded-2xl border-t border-yellow-500/20'>
+            <div class='text-yellow-400 text-xs font-bold uppercase mb-2'>Watchlist Rules</div>
+            <div class='text-4xl font-extrabold text-white'>{{ watchlist|length }}</div>
+        </div>
+    </div>
+
+    <div class='grid grid-cols-1 lg:grid-cols-3 gap-8'>
+        
+        <div class='space-y-8'>
+            
+            <div class='glass p-6 rounded-2xl border-t border-white/10'>
+                <h3 class='text-lg font-bold text-white mb-4'>📢 Invite Team</h3>
+                <p class='text-xs text-slate-400 mb-3'>Share this code. When employees join, they automatically sync to your dashboard.</p>
+                <div class='flex gap-2'>
+                    <div class='flex-1 font-mono text-lg text-white bg-black/50 p-3 rounded-lg border border-slate-700 text-center select-all tracking-widest font-bold'>{{ user.invite_code }}</div>
+                </div>
+            </div>
+
+            <div class='glass p-6 rounded-2xl border-t border-purple-500/20'>
+                <h3 class='text-lg font-bold text-white mb-4 flex items-center gap-2'><span>👾</span> Discord Alerts</h3>
+                <p class='text-xs text-slate-400 mb-3'>Receive real-time notifications in your Slack or Discord channel.</p>
+                <form method='POST'>
+                    <input type='text' name='discord_webhook' value='{{ user.discord_webhook or "" }}' placeholder='https://discord.com/api/webhooks/...' class='w-full bg-black/50 border border-slate-800 rounded-lg px-3 py-3 text-xs text-white mb-3 focus:border-purple-500 outline-none transition'>
+                    <button class='w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition'>Save Webhook</button>
+                </form>
+            </div>
+
+            <div class='glass p-6 rounded-2xl border-t border-blue-500/20'>
+                <h3 class='text-lg font-bold text-white mb-4'>🚫 Banned Words</h3>
+                <form method='POST' class='flex gap-2 mb-4'>
+                    <input type='text' name='new_keyword' placeholder='e.g. Project Omega' class='w-full bg-black/50 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none'>
+                    <button class='bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold'>Add</button>
+                </form>
+                <div class='flex flex-wrap gap-2'>
+                    {% for item in watchlist %}
+                    <form method='POST' class='inline'><input type='hidden' name='delete_keyword' value='{{ item[0] }}'><button class='px-3 py-1 bg-slate-800 border border-slate-700 hover:border-red-500 rounded-full text-xs text-slate-300 transition'>{{ item[2] }} ×</button></form>
+                    {% else %}
+                    <p class="text-xs text-slate-600 italic">No active rules.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class='lg:col-span-2'>
+            <div class='glass p-6 rounded-2xl border-t border-white/10'>
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class='text-lg font-bold text-white'>Live Intercept Log</h3>
+                    <div class="flex gap-2">
+                        <span class="text-[10px] uppercase font-bold text-slate-500 bg-slate-900 px-2 py-1 rounded">Real-time</span>
+                    </div>
+                </div>
+                
+                <div class='space-y-4'>
+                    {% if not rows %}
+                        <div class="text-center py-12 border-2 border-dashed border-slate-800 rounded-xl">
+                            <p class="text-slate-500 font-medium">No threats detected yet.</p>
+                            <p class="text-slate-600 text-xs mt-1">System is armed and watching.</p>
+                        </div>
+                    {% endif %}
+
+                    {% for row in rows %}
+                    <div class='relative group glass p-4 rounded-xl border-l-[4px] {{ "border-red-500" if row[5] > 70 else "border-green-500" }} transition hover:bg-slate-800/50'>
+                        <div class='flex justify-between items-start mb-2'>
+                            <div class='flex flex-col'>
+                                <span class='font-bold text-white text-sm'>{{ row[8] }}</span>
+                                <span class='text-[10px] text-slate-500'>{{ row[7].strftime('%b %d, %H:%M') }}</span>
+                            </div>
+                            <span class='text-[10px] px-2 py-1 rounded-md uppercase font-black tracking-wider {{ "bg-red-500/20 text-red-400" if row[4] == "BLOCKED" else "bg-green-500/20 text-green-400" }}'>{{ row[4] }}</span>
+                        </div>
+                        
+                        <div class='bg-black/40 p-3 rounded-lg border border-white/5 font-mono text-xs text-slate-300 break-all mb-2'>
+                            {{ row[3] }}
+                        </div>
+
+                        <div class="flex justify-between items-center mt-2">
+                            <span class="text-[10px] text-slate-500 bg-slate-900 px-2 py-1 rounded">Risk Score: {{ row[5] }}</span>
+                            {% if row[6] != "Safe" %}
+                            <span class="text-[10px] text-red-400 flex items-center gap-1">⚠️ {{ row[6] }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{{ footer|safe }}
+</body></html>
+"""
 
 # --- ROUTES ---
 
 @app.route('/')
 def landing():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
-    return render_template_string(
-        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='antialiased'>{{ navbar|safe }}" + 
-        """<div class="pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow"><div class="max-w-4xl mx-auto"><div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V13.2 Team Edition</div><h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight">Security for the <br class="hidden sm:block" /><span class="gradient-text">Generative AI Era.</span></h1><p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">Stop employees from accidentally pasting API keys and PII into ChatGPT.</p><div class="flex flex-col sm:flex-row justify-center gap-4 px-4"><a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Team Free</a><a href="/guide" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">How to Install</a></div></div></div>{{ footer|safe }}</body></html>""",
-        base_head=BASE_HEAD,
-        navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user),
-        footer=FOOTER
-    )
+    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='antialiased'>{{ navbar|safe }}<div class='pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow'><div class='max-w-4xl mx-auto'><div class='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide'><span class='w-2 h-2 bg-indigo-500 rounded-full animate-pulse'></span> V14.0 High-Performance</div><h1 class='text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight'>Security for the <br class='hidden sm:block' /><span class='gradient-text'>Generative AI Era.</span></h1><p class='text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto'>Stop employees from accidentally pasting API keys and PII into ChatGPT.</p><div class='flex flex-col sm:flex-row justify-center gap-4 px-4'><a href='/register' class='w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25'>Start Team Free</a><a href='/guide' class='w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition'>How to Install</a></div></div></div>{{ footer|safe }}</body></html>", base_head=BASE_HEAD, navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user), footer=FOOTER)
 
 @app.route('/guide')
 def guide():
-    return render_template_string(
-        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='bg-slate-950 pb-20'>{{ navbar|safe }}<main class='pt-32 max-w-4xl mx-auto px-6'><h1 class='text-3xl md:text-5xl font-bold text-white mb-6 text-center'>How to install <span class='gradient-text'>VIGIL Shield</span></h1><div class='space-y-4'><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>1. Download</h3><p class='text-slate-400 text-sm'>Download the .zip file of the extension.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>2. Load</h3><p class='text-slate-400 text-sm'>Load unpacked in chrome://extensions.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>3. Connect</h3><p class='text-slate-400 text-sm'>Enter your API Key.</p></div></div></main>{{ footer|safe }}</body></html>",
-        base_head=BASE_HEAD,
-        navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user),
-        footer=FOOTER
-    )
+    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='bg-slate-950 pb-20'>{{ navbar|safe }}<main class='pt-32 max-w-4xl mx-auto px-6'><h1 class='text-3xl md:text-5xl font-bold text-white mb-6 text-center'>How to install <span class='gradient-text'>VIGIL Shield</span></h1><div class='space-y-4'><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>1. Download</h3><p class='text-slate-400 text-sm'>Download the .zip file of the extension.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>2. Load</h3><p class='text-slate-400 text-sm'>Load unpacked in chrome://extensions.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>3. Connect</h3><p class='text-slate-400 text-sm'>Enter your API Key.</p></div></div></main>{{ footer|safe }}</body></html>", base_head=BASE_HEAD, navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user), footer=FOOTER)
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
@@ -174,13 +295,13 @@ def dashboard():
     if request.method == 'POST':
         if 'discord_webhook' in request.form:
             wh = request.form.get('discord_webhook', '').strip()
-            cur.execute("UPDATE users_v7 SET discord_webhook = %s WHERE id = %s", (wh, current_user.id)); conn.commit(); msg = "✅ Webhook Saved"
+            cur.execute("UPDATE users_v7 SET discord_webhook = %s WHERE id = %s", (wh, current_user.id)); conn.commit(); msg = "Webhook Saved"
         if 'new_keyword' in request.form:
             kw = request.form.get('new_keyword', '').strip()
-            if kw: cur.execute("INSERT INTO watchlist_v7 (user_id, keyword) VALUES (%s, %s)", (current_user.id, kw)); conn.commit(); msg = f"✅ Added '{kw}'"
+            if kw: cur.execute("INSERT INTO watchlist_v7 (user_id, keyword) VALUES (%s, %s)", (current_user.id, kw)); conn.commit(); msg = f"Added '{kw}'"
         if 'delete_keyword' in request.form:
             kid = request.form.get('delete_keyword')
-            cur.execute("DELETE FROM watchlist_v7 WHERE id = %s AND user_id = %s", (kid, current_user.id)); conn.commit(); msg = "🗑️ Removed"
+            cur.execute("DELETE FROM watchlist_v7 WHERE id = %s AND user_id = %s", (kid, current_user.id)); conn.commit(); msg = "Removed Rule"
 
     cur.execute("""SELECT t.*, u.username as employee_name FROM transactions_v7 t JOIN users_v7 u ON t.user_id = u.id WHERE t.user_id = %s OR t.user_id IN (SELECT id FROM users_v7 WHERE manager_id = %s) ORDER BY t.created_at DESC LIMIT 50;""", (current_user.id, current_user.id))
     rows = cur.fetchall()
@@ -189,26 +310,9 @@ def dashboard():
     cur.execute("SELECT COUNT(*) FROM transactions_v7 t WHERE (t.user_id = %s OR t.user_id IN (SELECT id FROM users_v7 WHERE manager_id = %s)) AND status='BLOCKED'", (current_user.id, current_user.id)); total_blocked = cur.fetchone()[0]
     cur.execute("SELECT COUNT(*) FROM users_v7 WHERE manager_id = %s", (current_user.id,)); member_count = cur.fetchone()[0]
     rate = int((total_blocked / total_scans * 100) if total_scans > 0 else 100)
-    cur.execute("""SELECT DATE(created_at) as date, COUNT(*) FROM transactions_v7 t WHERE (t.user_id = %s OR t.user_id IN (SELECT id FROM users_v7 WHERE manager_id = %s)) AND created_at > current_date - interval '7 days' GROUP BY date ORDER BY date""", (current_user.id, current_user.id))
-    chart_rows = cur.fetchall(); labels = [r[0].strftime('%b %d') for r in chart_rows]; data = [r[1] for r in chart_rows]
     cur.close(); conn.close()
     
-    return render_template_string(
-        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='bg-slate-950 pb-20'>{{ navbar|safe }}<main class='pt-32 max-w-7xl mx-auto px-6'><div class='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'><div><h2 class='text-2xl font-bold text-white'>Command Center</h2><p class='text-slate-400 text-sm'>Monitoring {{ member_count }} User(s)</p></div><div class='flex gap-3'><a href='/export_logs' class='bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold border border-slate-700 transition flex items-center gap-2'><span>📥</span> Export Logs</a><a href='/simulate_leak' class='bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 flex items-center gap-2 transition'><span>⚠️</span> Simulate Leak</a></div></div>{% if msg %}<div class='mb-6 p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-bold text-center animate-pulse'>{{ msg }}</div>{% endif %}<div class='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'><div class='glass p-6 rounded-2xl border-t border-purple-500/20'><div class='text-purple-400 text-xs font-bold uppercase mb-2'>Team Members</div><div class='text-4xl font-bold text-white'>{{ member_count }}</div></div><div class='glass p-6 rounded-2xl border-t border-white/10'><div class='text-slate-400 text-xs font-bold uppercase mb-2'>Total Scans</div><div class='text-4xl font-bold text-white'>{{ total_scans }}</div></div><div class='glass p-6 rounded-2xl border-t border-red-500/20'><div class='text-red-400 text-xs font-bold uppercase mb-2'>Threats Blocked</div><div class='text-4xl font-bold text-white'>{{ total_blocked }}</div></div><div class='glass p-6 rounded-2xl border-t border-green-500/20'><div class='text-green-400 text-xs font-bold uppercase mb-2'>Protection Rate</div><div class='text-4xl font-bold text-white'>{{ rate }}%</div></div></div><div class='grid grid-cols-1 lg:grid-cols-3 gap-8'><div class='lg:col-span-2 space-y-8'><div class='glass p-6 rounded-2xl border-t border-blue-500/20'><h3 class='text-lg font-bold text-white mb-4 flex items-center gap-2'>🚫 Custom Watchlist</h3><form method='POST' class='flex gap-2 mb-4'><input type='text' name='new_keyword' placeholder='Block word for team...' class='w-full bg-black/50 border border-slate-800 rounded px-3 py-2 text-sm text-white'><button class='bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold'>Add</button></form><div class='flex flex-wrap gap-2'>{% for item in watchlist %}<form method='POST' class='inline'><input type='hidden' name='delete_keyword' value='{{ item[0] }}'><button class='px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs text-slate-300'>{{ item[2] }} ×</button></form>{% endfor %}</div></div><div class='glass p-6 rounded-2xl border-t border-white/10'><h3 class='text-lg font-bold text-white mb-4'>Team Activity</h3><div class='space-y-3'>{% for row in rows %}<div class='glass rounded-xl p-4 border-l-[4px] {{ 'border-red-500' if row[5] > 70 else 'border-green-500' }}'><div class='flex justify-between items-center mb-2'><div class='flex items-center gap-2'><span class='font-bold text-white text-sm'>{{ row[8] }}</span><span class='text-[10px] text-slate-500 uppercase bg-slate-800 px-1.5 rounded'>User</span></div><span class='text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider {{ 'bg-red-500/20 text-red-400' if row[4] == 'BLOCKED' else 'bg-green-500/20 text-green-400' }}'>{{ row[4] }}</span></div><div class='bg-black/30 p-2 rounded border border-white/5 font-mono text-xs text-slate-300 break-all mb-2'>\"{{ row[3] }}\"</div></div>{% endfor %}</div></div></div><div class='space-y-6'><div class='glass p-6 rounded-2xl border-t border-indigo-500/20'><div class='text-indigo-400 text-xs font-bold uppercase mb-2'>Your Invite Code</div><div class='text-sm text-slate-400 mb-2'>Share this code with your team.</div><div class='font-mono text-xl text-white bg-indigo-500/10 p-4 rounded border border-indigo-500/50 text-center select-all tracking-widest font-bold'>{{ user.invite_code }}</div></div><div class='glass p-6 rounded-2xl border-t border-white/10 mb-8'><h3 class='text-lg font-bold text-white mb-4'>Trend</h3><div class='h-40'><canvas id='activityChart'></canvas></div></div><div class='glass p-6 rounded-2xl border-t border-indigo-500/20'><div class='text-indigo-400 text-xs font-bold uppercase mb-2'>Your API Key</div><div class='font-mono text-xs text-white bg-black/50 p-3 rounded border border-slate-800 break-all select-all'>{{ user.api_key }}</div></div></div></div></main><script>const ctx=document.getElementById('activityChart');new Chart(ctx,{type:'line',data:{labels:{{ labels|tojson }},datasets:[{label:'Scans',data:{{ data|tojson }},borderColor:'#6366f1',backgroundColor:'rgba(99, 102, 241, 0.1)',tension:0.4,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,0.05)'}},x:{grid:{display:false}}}}});</script>{{ footer|safe }}</body></html>",
-        base_head=BASE_HEAD,
-        navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user),
-        footer=FOOTER,
-        user=current_user,
-        rows=rows,
-        watchlist=watchlist,
-        msg=msg,
-        total_scans=total_scans,
-        total_blocked=total_blocked,
-        rate=rate,
-        labels=labels,
-        data=data,
-        member_count=member_count
-    )
+    return render_template_string(DASHBOARD_HTML, base_head=BASE_HEAD, navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user), footer=FOOTER, user=current_user, rows=rows, watchlist=watchlist, msg=msg, total_scans=total_scans, total_blocked=total_blocked, rate=rate, member_count=member_count)
 
 @app.route('/export_logs')
 @login_required
@@ -228,11 +332,7 @@ def login():
         conn = get_db_connection(); cur = conn.cursor(); cur.execute("SELECT * FROM users_v7 WHERE username = %s", (u,)); row = cur.fetchone(); cur.close(); conn.close()
         if row and check_password_hash(row[2], p):
             user = User(id=row[0], username=row[1], password_hash=row[2], discord_webhook=row[3], api_key=row[4], invite_code=row[5], manager_id=row[6], plan_type=row[7]); login_user(user); return redirect(url_for('dashboard'))
-    return render_template_string(
-        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>VIGIL Login</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'><div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Sign in</button></form><div class='mt-6 text-center'><a href='/register' class='text-slate-400 hover:text-white'>Create Account</a></div></div></div></body></html>",
-        base_head=BASE_HEAD,
-        logo=LOGO_SVG
-    )
+    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>VIGIL Login</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'><div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Sign in</button></form><div class='mt-6 text-center'><a href='/register' class='text-slate-400 hover:text-white'>Create Account</a></div></div></div></body></html>", base_head=BASE_HEAD, logo=LOGO_SVG)
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -251,13 +351,7 @@ def register():
             user = User(id=uid, username=u, password_hash=h, discord_webhook=None, api_key=k, invite_code=my_invite, manager_id=manager_id, plan_type='free')
             login_user(user); return redirect(url_for('dashboard'))
         except: msg = "Username taken"
-        
-    return render_template_string(
-        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>Create Account</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'>{% if msg %}<div class='bg-red-500/10 text-red-400 text-center text-sm p-2 rounded'>{{ msg }}</div>{% endif %}<div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-indigo-300'>Join a Team (Optional)</label><input name='invite_code' type='text' placeholder='Enter Manager Code' class='block w-full px-3 py-3 border border-indigo-500/30 rounded-xl bg-indigo-900/10 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Register</button></form><div class='mt-6 text-center'><a href='/login' class='text-slate-400 hover:text-white'>Already have account?</a></div></div></div></body></html>",
-        base_head=BASE_HEAD,
-        logo=LOGO_SVG,
-        msg=msg
-    )
+    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>Create Account</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'>{{% if msg %}}<div class='bg-red-500/10 text-red-400 text-center text-sm p-2 rounded'>{{{{ msg }}}}</div>{{% endif %}}<div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-indigo-300'>Join a Team (Optional)</label><input name='invite_code' type='text' placeholder='Enter Manager Code' class='block w-full px-3 py-3 border border-indigo-500/30 rounded-xl bg-indigo-900/10 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Register</button></form><div class='mt-6 text-center'><a href='/login' class='text-slate-400 hover:text-white'>Already have account?</a></div></div></div></body></html>", base_head=BASE_HEAD, logo=LOGO_SVG, msg=msg)
 
 @app.route('/v1/firewall', methods=['POST'])
 def firewall_api():
