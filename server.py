@@ -53,37 +53,25 @@ if DB_URL: init_db()
 
 # --- VIGIL BRAIN (REDACTION ENABLED) ---
 def analyze_security_risk(prompt_text, user_id):
-    # Speed Optimization: Skip very short texts
+    # 1. Speed Skip
     if len(prompt_text) < 10: return 0, "Safe (Short)", "None", prompt_text
 
-    # 1. WATCHLIST CHECK
+    # 2. Watchlist Check (With Redaction)
     try:
         conn = get_db_connection(); cur = conn.cursor()
         cur.execute("""SELECT keyword FROM watchlist_v7 WHERE user_id = %s OR user_id = (SELECT manager_id FROM users_v7 WHERE id = %s)""", (user_id, user_id))
         rows = cur.fetchall(); cur.close(); conn.close()
         for row in rows:
             if row[0].lower() in prompt_text.lower(): 
-                # Smart Redaction for Watchlist
                 redacted = prompt_text.replace(row[0], "[BLOCKED_KEYWORD]")
                 return 100, f"Banned keyword: {row[0]}", "This word is on your blocklist.", redacted
     except: pass
 
-    # 2. AI CHECK
+    # 3. AI Check (With Redaction)
     if not openai_client: return 0, "AI Not Configured", "Contact Admin.", prompt_text
     try:
-        system_prompt = """You are VIGIL Security. Analyze the input for API Keys, Passwords, and PII. 
-        Return JSON: { 
-            "risk_score": 0-100, 
-            "risk_reason": "Brief explanation", 
-            "coaching_tip": "Short actionable advice",
-            "redacted_text": "The input string with sensitive data replaced by [REDACTED]"
-        }."""
-        
-        response = openai_client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Scan: {prompt_text}"}],
-            response_format={ "type": "json_object" }
-        )
+        system_prompt = "You are VIGIL. Analyze input for keys/PII. Return JSON: { \"risk_score\": 0-100, \"risk_reason\": \"text\", \"coaching_tip\": \"text\", \"redacted_text\": \"text with [REDACTED]\" }."
+        response = openai_client.chat.completions.create(model="gpt-4o-mini", messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Scan: {prompt_text}"}], response_format={ "type": "json_object" })
         result = json.loads(response.choices[0].message.content)
         return result.get('risk_score', 0), result.get('risk_reason', "Safe"), result.get('coaching_tip', "No issues."), result.get('redacted_text', prompt_text)
     except: return 50, "AI Error", "Try again.", prompt_text
@@ -109,12 +97,27 @@ def send_discord_alert(webhook_url, message, color=None):
     except: pass
 
 # ===========================
-# === UI COMPONENTS ===
+# === UI VARIABLES ===
 # ===========================
 
 LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-indigo-500"><path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>"""
 
-BASE_HEAD = """<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>VIGIL Teams</title><script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/chart.js"></script><link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"><style>body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; } .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); } .hero-glow { background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%); } .gradient-text { background: linear-gradient(135deg, #fff 0%, #94a3b8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }</style></head>"""
+BASE_HEAD = """
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VIGIL Teams</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #020617; color: #f8fafc; overflow-x: hidden; }
+        .glass { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .hero-glow { background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15) 0%, transparent 60%); }
+        .gradient-text { background: linear-gradient(135deg, #fff 0%, #94a3b8 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+"""
 
 NAVBAR_HTML = """<nav x-data="{ open: false }" class="fixed w-full z-50 glass border-b border-slate-800 transition-all duration-300"><div class="max-w-7xl mx-auto px-6 h-20 flex justify-between items-center"><a href="/" class="flex items-center gap-3">{{ logo|safe }}<span class="text-xl font-bold tracking-tight text-white">VIGIL</span></a><div class="hidden md:flex gap-8 text-sm font-medium text-slate-400 items-center">{% if current_user.is_authenticated %}<a href="/dashboard" class="text-white hover:text-indigo-400">Dashboard</a><a href="/logout" class="px-4 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700">Log Out</a>{% else %}<a href="/login" class="text-slate-300 hover:text-white">Log in</a><a href="/register" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500">Get Started</a>{% endif %}</div></div></nav>"""
 
