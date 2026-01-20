@@ -90,7 +90,7 @@ def send_discord_alert(webhook_url, message, color=None):
     except: pass
 
 # ===========================
-# === UI TEMPLATES (SAFE) ===
+# === UI COMPONENTS ===
 # ===========================
 
 LOGO_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-indigo-500"><path fill-rule="evenodd" d="M12.516 2.17a.75.75 0 00-1.032 0 11.209 11.209 0 01-7.877 3.08.75.75 0 00-.722.515A12.74 12.74 0 002.25 9.75c0 5.942 4.064 10.933 9.563 12.348a.749.749 0 00.374 0c5.499-1.415 9.563-6.406 9.563-12.348 0-1.39-.223-2.73-.635-3.985a.75.75 0 00-.722-.516l-.143.001c-2.996 0-5.717-1.17-7.734-3.08zm3.094 8.016a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clip-rule="evenodd" /></svg>"""
@@ -143,103 +143,29 @@ NAVBAR_TEMPLATE = """
 </nav>
 """
 
-DASHBOARD_HTML = """
-<!DOCTYPE html><html lang='en'>
-{{ base_head|safe }}
-<body class='bg-slate-950 pb-20'>
-{{ navbar|safe }}
-<main class='pt-32 max-w-7xl mx-auto px-6'>
-    <div class='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'>
-        <div><h2 class='text-2xl font-bold text-white'>Team Command Center</h2><p class='text-slate-400 text-sm'>Monitoring {{ member_count }} user(s)</p></div>
-        <div class='flex gap-3'>
-            <a href='/export_logs' class='bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold border border-slate-700 transition flex items-center gap-2'><span>📥</span> Export Logs</a>
-            <a href='/simulate_leak' class='bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 flex items-center gap-2 transition'><span>⚠️</span> Simulate Leak</a>
-        </div>
-    </div>
-    {% if msg %}<div class='mb-6 p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-bold text-center animate-pulse'>{{ msg }}</div>{% endif %}
-    
-    <div class='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'>
-        <div class='glass p-6 rounded-2xl border-t border-purple-500/20'><div class='text-purple-400 text-xs font-bold uppercase mb-2'>Team Members</div><div class='text-4xl font-bold text-white'>{{ member_count }}</div></div>
-        <div class='glass p-6 rounded-2xl border-t border-white/10'><div class='text-slate-400 text-xs font-bold uppercase mb-2'>Total Scans</div><div class='text-4xl font-bold text-white'>{{ total_scans }}</div></div>
-        <div class='glass p-6 rounded-2xl border-t border-red-500/20'><div class='text-red-400 text-xs font-bold uppercase mb-2'>Threats Blocked</div><div class='text-4xl font-bold text-white'>{{ total_blocked }}</div></div>
-        <div class='glass p-6 rounded-2xl border-t border-green-500/20'><div class='text-green-400 text-xs font-bold uppercase mb-2'>Protection Rate</div><div class='text-4xl font-bold text-white'>{{ rate }}%</div></div>
-    </div>
-
-    <div class='grid grid-cols-1 lg:grid-cols-3 gap-8'>
-        <div class='lg:col-span-2 space-y-8'>
-            <div class='glass p-6 rounded-2xl border-t border-blue-500/20'>
-                <h3 class='text-lg font-bold text-white mb-4 flex items-center gap-2'>🚫 Team Watchlist</h3>
-                <form method='POST' class='flex gap-2 mb-4'>
-                    <input type='text' name='new_keyword' placeholder='Block word for team...' class='w-full bg-black/50 border border-slate-800 rounded px-3 py-2 text-sm text-white'>
-                    <button class='bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold'>Add</button>
-                </form>
-                <div class='flex flex-wrap gap-2'>
-                    {% for item in watchlist %}
-                    <form method='POST' class='inline'><input type='hidden' name='delete_keyword' value='{{ item[0] }}'><button class='px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs text-slate-300'>{{ item[2] }} ×</button></form>
-                    {% endfor %}
-                </div>
-            </div>
-            <div class='glass p-6 rounded-2xl border-t border-white/10'>
-                <h3 class='text-lg font-bold text-white mb-4'>Activity Log</h3>
-                <div class='space-y-3'>
-                    {% for row in rows %}
-                    <div class='glass rounded-xl p-4 border-l-[4px] {{ "border-red-500" if row[5] > 70 else "border-green-500" }}'>
-                        <div class='flex justify-between items-center mb-2'>
-                            <div class='flex items-center gap-2'><span class='font-bold text-white text-sm'>{{ row[8] }}</span></div>
-                            <span class='text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider {{ "bg-red-500/20 text-red-400" if row[4] == "BLOCKED" else "bg-green-500/20 text-green-400" }}'>{{ row[4] }}</span>
-                        </div>
-                        <div class='bg-black/30 p-2 rounded border border-white/5 font-mono text-xs text-slate-300 break-all mb-2'>"{{ row[3] }}"</div>
-                    </div>
-                    {% endfor %}
-                </div>
-            </div>
-        </div>
-        <div class='space-y-6'>
-            <div class='glass p-6 rounded-2xl border-t border-indigo-500/20'>
-                <div class='text-indigo-400 text-xs font-bold uppercase mb-2'>Invite Code</div>
-                <div class='font-mono text-xl text-white bg-indigo-500/10 p-4 rounded border border-indigo-500/50 text-center select-all tracking-widest font-bold'>{{ user.invite_code }}</div>
-            </div>
-            <div class='glass p-6 rounded-2xl border-t border-white/10 mb-8'><h3 class='text-lg font-bold text-white mb-4'>Trend</h3><div class='h-40'><canvas id='activityChart'></canvas></div></div>
-            <div class='glass p-6 rounded-2xl border-t border-indigo-500/20'><div class='text-indigo-400 text-xs font-bold uppercase mb-2'>Your API Key</div><div class='font-mono text-xs text-white bg-black/50 p-3 rounded border border-slate-800 break-all select-all'>{{ user.api_key }}</div></div>
-        </div>
-    </div>
-</main>
-<script>
-    const ctx=document.getElementById('activityChart');
-    new Chart(ctx, {
-        type:'line',
-        data:{
-            labels: {{ labels|tojson }},
-            datasets:[{
-                label:'Scans',
-                data: {{ data|tojson }},
-                borderColor:'#6366f1',
-                backgroundColor:'rgba(99, 102, 241, 0.1)',
-                tension:0.4,
-                fill:true
-            }]
-        },
-        options:{
-            responsive:true,
-            maintainAspectRatio:false,
-            plugins:{legend:{display:false}},
-            scales:{y:{grid:{color:'rgba(255,255,255,0.05)'}},x:{grid:{display:false}}}
-        }
-    });
-</script>
-</body></html>
-"""
+FOOTER = """<footer class="py-12 text-center text-slate-600 text-sm border-t border-slate-900"><div class="flex flex-col md:flex-row justify-center items-center gap-4"><span>&copy; 2026 VIGIL Security.</span><a href="/privacy" class="text-slate-500 hover:text-indigo-400 transition">Privacy Policy</a><a href="/guide" class="text-slate-500 hover:text-indigo-400 transition">Installation</a></div></footer>"""
 
 # --- ROUTES ---
 
 @app.route('/')
 def landing():
     if current_user.is_authenticated: return redirect(url_for('dashboard'))
-    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='antialiased'>{{ navbar|safe }}<div class='pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow'><div class='max-w-4xl mx-auto'><div class='inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide'><span class='w-2 h-2 bg-indigo-500 rounded-full animate-pulse'></span> V13.1 Team Edition</div><h1 class='text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight'>Security for the <br class='hidden sm:block' /><span class='gradient-text'>Generative AI Era.</span></h1><p class='text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto'>Stop employees from accidentally pasting API keys and PII into ChatGPT.</p><div class='flex flex-col sm:flex-row justify-center gap-4 px-4'><a href='/register' class='w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25'>Start Team Free</a><a href='/guide' class='w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition'>How to Install</a></div></div></div></body></html>", base_head=BASE_HEAD, navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user))
+    return render_template_string(
+        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='antialiased'>{{ navbar|safe }}" + 
+        """<div class="pt-32 pb-16 lg:pt-48 lg:pb-32 px-6 text-center hero-glow"><div class="max-w-4xl mx-auto"><div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/50 border border-indigo-500/30 text-indigo-300 text-xs font-bold mb-8 uppercase tracking-wide"><span class="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></span> V13.2 Team Edition</div><h1 class="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white mb-6 leading-tight">Security for the <br class="hidden sm:block" /><span class="gradient-text">Generative AI Era.</span></h1><p class="text-lg sm:text-xl text-slate-400 mb-10 max-w-2xl mx-auto">Stop employees from accidentally pasting API keys and PII into ChatGPT.</p><div class="flex flex-col sm:flex-row justify-center gap-4 px-4"><a href="/register" class="w-full sm:w-auto px-8 py-4 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-500 transition shadow-lg shadow-indigo-500/25">Start Team Free</a><a href="/guide" class="w-full sm:w-auto px-8 py-4 glass text-slate-300 font-bold rounded-xl hover:bg-slate-800 transition">How to Install</a></div></div></div>{{ footer|safe }}</body></html>""",
+        base_head=BASE_HEAD,
+        navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user),
+        footer=FOOTER
+    )
 
 @app.route('/guide')
 def guide():
-    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='bg-slate-950 pb-20'>{{ navbar|safe }}<main class='pt-32 max-w-4xl mx-auto px-6'><h1 class='text-3xl md:text-5xl font-bold text-white mb-6 text-center'>How to install <span class='gradient-text'>VIGIL Shield</span></h1><div class='space-y-4'><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>1. Download</h3><p class='text-slate-400 text-sm'>Download the .zip file of the extension.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>2. Load</h3><p class='text-slate-400 text-sm'>Load unpacked in chrome://extensions.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>3. Connect</h3><p class='text-slate-400 text-sm'>Enter your API Key.</p></div></div></main></body></html>", base_head=BASE_HEAD, navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user))
+    return render_template_string(
+        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='bg-slate-950 pb-20'>{{ navbar|safe }}<main class='pt-32 max-w-4xl mx-auto px-6'><h1 class='text-3xl md:text-5xl font-bold text-white mb-6 text-center'>How to install <span class='gradient-text'>VIGIL Shield</span></h1><div class='space-y-4'><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>1. Download</h3><p class='text-slate-400 text-sm'>Download the .zip file of the extension.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>2. Load</h3><p class='text-slate-400 text-sm'>Load unpacked in chrome://extensions.</p></div><div class='glass p-6 rounded-2xl border-t border-white/5'><h3 class='font-bold text-white text-lg'>3. Connect</h3><p class='text-slate-400 text-sm'>Enter your API Key.</p></div></div></main>{{ footer|safe }}</body></html>",
+        base_head=BASE_HEAD,
+        navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user),
+        footer=FOOTER
+    )
 
 @app.route('/dashboard', methods=['GET', 'POST'])
 @login_required
@@ -267,7 +193,22 @@ def dashboard():
     chart_rows = cur.fetchall(); labels = [r[0].strftime('%b %d') for r in chart_rows]; data = [r[1] for r in chart_rows]
     cur.close(); conn.close()
     
-    return render_template_string(DASHBOARD_HTML, base_head=BASE_HEAD, navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user), user=current_user, rows=rows, watchlist=watchlist, msg=msg, total_scans=total_scans, total_blocked=total_blocked, rate=rate, labels=labels, data=data, member_count=member_count)
+    return render_template_string(
+        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='bg-slate-950 pb-20'>{{ navbar|safe }}<main class='pt-32 max-w-7xl mx-auto px-6'><div class='flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4'><div><h2 class='text-2xl font-bold text-white'>Command Center</h2><p class='text-slate-400 text-sm'>Monitoring {{ member_count }} User(s)</p></div><div class='flex gap-3'><a href='/export_logs' class='bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm font-bold border border-slate-700 transition flex items-center gap-2'><span>📥</span> Export Logs</a><a href='/simulate_leak' class='bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-lg shadow-red-500/20 flex items-center gap-2 transition'><span>⚠️</span> Simulate Leak</a></div></div>{% if msg %}<div class='mb-6 p-4 rounded-xl bg-indigo-500/20 border border-indigo-500/40 text-indigo-200 font-bold text-center animate-pulse'>{{ msg }}</div>{% endif %}<div class='grid grid-cols-1 md:grid-cols-4 gap-6 mb-8'><div class='glass p-6 rounded-2xl border-t border-purple-500/20'><div class='text-purple-400 text-xs font-bold uppercase mb-2'>Team Members</div><div class='text-4xl font-bold text-white'>{{ member_count }}</div></div><div class='glass p-6 rounded-2xl border-t border-white/10'><div class='text-slate-400 text-xs font-bold uppercase mb-2'>Total Scans</div><div class='text-4xl font-bold text-white'>{{ total_scans }}</div></div><div class='glass p-6 rounded-2xl border-t border-red-500/20'><div class='text-red-400 text-xs font-bold uppercase mb-2'>Threats Blocked</div><div class='text-4xl font-bold text-white'>{{ total_blocked }}</div></div><div class='glass p-6 rounded-2xl border-t border-green-500/20'><div class='text-green-400 text-xs font-bold uppercase mb-2'>Protection Rate</div><div class='text-4xl font-bold text-white'>{{ rate }}%</div></div></div><div class='grid grid-cols-1 lg:grid-cols-3 gap-8'><div class='lg:col-span-2 space-y-8'><div class='glass p-6 rounded-2xl border-t border-blue-500/20'><h3 class='text-lg font-bold text-white mb-4 flex items-center gap-2'>🚫 Custom Watchlist</h3><form method='POST' class='flex gap-2 mb-4'><input type='text' name='new_keyword' placeholder='Block word for team...' class='w-full bg-black/50 border border-slate-800 rounded px-3 py-2 text-sm text-white'><button class='bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-bold'>Add</button></form><div class='flex flex-wrap gap-2'>{% for item in watchlist %}<form method='POST' class='inline'><input type='hidden' name='delete_keyword' value='{{ item[0] }}'><button class='px-3 py-1 bg-slate-800 border border-slate-700 rounded-full text-xs text-slate-300'>{{ item[2] }} ×</button></form>{% endfor %}</div></div><div class='glass p-6 rounded-2xl border-t border-white/10'><h3 class='text-lg font-bold text-white mb-4'>Team Activity</h3><div class='space-y-3'>{% for row in rows %}<div class='glass rounded-xl p-4 border-l-[4px] {{ 'border-red-500' if row[5] > 70 else 'border-green-500' }}'><div class='flex justify-between items-center mb-2'><div class='flex items-center gap-2'><span class='font-bold text-white text-sm'>{{ row[8] }}</span><span class='text-[10px] text-slate-500 uppercase bg-slate-800 px-1.5 rounded'>User</span></div><span class='text-[10px] px-2 py-0.5 rounded uppercase font-black tracking-wider {{ 'bg-red-500/20 text-red-400' if row[4] == 'BLOCKED' else 'bg-green-500/20 text-green-400' }}'>{{ row[4] }}</span></div><div class='bg-black/30 p-2 rounded border border-white/5 font-mono text-xs text-slate-300 break-all mb-2'>\"{{ row[3] }}\"</div></div>{% endfor %}</div></div></div><div class='space-y-6'><div class='glass p-6 rounded-2xl border-t border-indigo-500/20'><div class='text-indigo-400 text-xs font-bold uppercase mb-2'>Your Invite Code</div><div class='text-sm text-slate-400 mb-2'>Share this code with your team.</div><div class='font-mono text-xl text-white bg-indigo-500/10 p-4 rounded border border-indigo-500/50 text-center select-all tracking-widest font-bold'>{{ user.invite_code }}</div></div><div class='glass p-6 rounded-2xl border-t border-white/10 mb-8'><h3 class='text-lg font-bold text-white mb-4'>Trend</h3><div class='h-40'><canvas id='activityChart'></canvas></div></div><div class='glass p-6 rounded-2xl border-t border-indigo-500/20'><div class='text-indigo-400 text-xs font-bold uppercase mb-2'>Your API Key</div><div class='font-mono text-xs text-white bg-black/50 p-3 rounded border border-slate-800 break-all select-all'>{{ user.api_key }}</div></div></div></div></main><script>const ctx=document.getElementById('activityChart');new Chart(ctx,{type:'line',data:{labels:{{ labels|tojson }},datasets:[{label:'Scans',data:{{ data|tojson }},borderColor:'#6366f1',backgroundColor:'rgba(99, 102, 241, 0.1)',tension:0.4,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,0.05)'}},x:{grid:{display:false}}}}});</script>{{ footer|safe }}</body></html>",
+        base_head=BASE_HEAD,
+        navbar=render_template_string(NAVBAR_TEMPLATE, logo=LOGO_SVG, current_user=current_user),
+        footer=FOOTER,
+        user=current_user,
+        rows=rows,
+        watchlist=watchlist,
+        msg=msg,
+        total_scans=total_scans,
+        total_blocked=total_blocked,
+        rate=rate,
+        labels=labels,
+        data=data,
+        member_count=member_count
+    )
 
 @app.route('/export_logs')
 @login_required
@@ -287,7 +228,11 @@ def login():
         conn = get_db_connection(); cur = conn.cursor(); cur.execute("SELECT * FROM users_v7 WHERE username = %s", (u,)); row = cur.fetchone(); cur.close(); conn.close()
         if row and check_password_hash(row[2], p):
             user = User(id=row[0], username=row[1], password_hash=row[2], discord_webhook=row[3], api_key=row[4], invite_code=row[5], manager_id=row[6], plan_type=row[7]); login_user(user); return redirect(url_for('dashboard'))
-    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>VIGIL Login</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'><div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Sign in</button></form><div class='mt-6 text-center'><a href='/register' class='text-slate-400 hover:text-white'>Create Account</a></div></div></div></body></html>", base_head=BASE_HEAD, logo=LOGO_SVG)
+    return render_template_string(
+        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>VIGIL Login</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'><div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Sign in</button></form><div class='mt-6 text-center'><a href='/register' class='text-slate-400 hover:text-white'>Create Account</a></div></div></div></body></html>",
+        base_head=BASE_HEAD,
+        logo=LOGO_SVG
+    )
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -296,22 +241,23 @@ def register():
         u = request.form['username']; p = request.form['password']; invite = request.form.get('invite_code', '').strip()
         h = generate_password_hash(p); k = "sk_live_" + secrets.token_hex(16); my_invite = secrets.token_hex(4).upper()
         conn = get_db_connection(); cur = conn.cursor()
-        
         manager_id = None
         if invite:
-            cur.execute("SELECT id FROM users_v7 WHERE invite_code = %s", (invite,))
-            res = cur.fetchone()
+            cur.execute("SELECT id FROM users_v7 WHERE invite_code = %s", (invite,)); res = cur.fetchone()
             if res: manager_id = res[0]
             else: msg = "Invalid Invite Code"
-
         try: 
-            cur.execute("INSERT INTO users_v7 (username, password_hash, api_key, invite_code, manager_id) VALUES (%s, %s, %s, %s, %s) RETURNING id", (u, h, k, my_invite, manager_id))
-            uid = cur.fetchone()[0]; conn.commit(); cur.close(); conn.close()
+            cur.execute("INSERT INTO users_v7 (username, password_hash, api_key, invite_code, manager_id) VALUES (%s, %s, %s, %s, %s) RETURNING id", (u, h, k, my_invite, manager_id)); uid = cur.fetchone()[0]; conn.commit(); cur.close(); conn.close()
             user = User(id=uid, username=u, password_hash=h, discord_webhook=None, api_key=k, invite_code=my_invite, manager_id=manager_id, plan_type='free')
             login_user(user); return redirect(url_for('dashboard'))
         except: msg = "Username taken"
         
-    return render_template_string(f"<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>Create Account</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'>{{% if msg %}}<div class='bg-red-500/10 text-red-400 text-center text-sm p-2 rounded'>{{{{ msg }}}}</div>{{% endif %}}<div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-indigo-300'>Join a Team (Optional)</label><input name='invite_code' type='text' placeholder='Enter Manager Code' class='block w-full px-3 py-3 border border-indigo-500/30 rounded-xl bg-indigo-900/10 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Register</button></form><div class='mt-6 text-center'><a href='/login' class='text-slate-400 hover:text-white'>Already have account?</a></div></div></div></body></html>", base_head=BASE_HEAD, logo=LOGO_SVG, msg=msg)
+    return render_template_string(
+        "<!DOCTYPE html><html lang='en'>{{ base_head|safe }}<body class='min-h-screen bg-slate-950 flex flex-col justify-center py-12 sm:px-6 lg:px-8'><div class='sm:mx-auto sm:w-full sm:max-w-md text-center mb-8'><div class='mx-auto h-12 w-12 flex items-center justify-center bg-indigo-500/10 rounded-xl mb-4'>{{ logo|safe }}</div><h2 class='text-3xl font-extrabold text-white'>Create Account</h2></div><div class='mt-8 sm:mx-auto sm:w-full sm:max-w-md'><div class='glass py-8 px-6 shadow rounded-2xl'><form class='space-y-6' method='POST'>{% if msg %}<div class='bg-red-500/10 text-red-400 text-center text-sm p-2 rounded'>{{ msg }}</div>{% endif %}<div><label class='block text-sm font-medium text-slate-300'>Username</label><input name='username' type='text' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-slate-300'>Password</label><input name='password' type='password' required class='block w-full px-3 py-3 border border-slate-700 rounded-xl bg-slate-900/50 text-white'></div><div><label class='block text-sm font-medium text-indigo-300'>Join a Team (Optional)</label><input name='invite_code' type='text' placeholder='Enter Manager Code' class='block w-full px-3 py-3 border border-indigo-500/30 rounded-xl bg-indigo-900/10 text-white'></div><button type='submit' class='w-full py-3 px-4 bg-indigo-600 rounded-xl text-white font-bold'>Register</button></form><div class='mt-6 text-center'><a href='/login' class='text-slate-400 hover:text-white'>Already have account?</a></div></div></div></body></html>",
+        base_head=BASE_HEAD,
+        logo=LOGO_SVG,
+        msg=msg
+    )
 
 @app.route('/v1/firewall', methods=['POST'])
 def firewall_api():
@@ -320,14 +266,11 @@ def firewall_api():
     api_key = auth.split(" ")[1]
     conn = get_db_connection(); cur = conn.cursor(); cur.execute("SELECT * FROM users_v7 WHERE api_key = %s", (api_key,)); u = cur.fetchone(); cur.close(); conn.close()
     if not u: return jsonify({"error": "Invalid Key"}), 403
-    
     data = request.json; prompt = data.get("prompt", ""); source = data.get("source", "Extension"); req_id = str(uuid.uuid4())[:8]
     score, reason, tip = analyze_security_risk(prompt, u[0]); status = "BLOCKED" if score > 70 else "ALLOWED"
-    
     conn = get_db_connection(); cur = conn.cursor()
     cur.execute("INSERT INTO transactions_v7 (id, user_id, source, description, status, risk_score, risk_reason) VALUES (%s,%s,%s,%s,%s,%s,%s)", (req_id, u[0], source, prompt, status, score, reason))
     conn.commit(); cur.close(); conn.close()
-    
     if status == "BLOCKED": send_discord_alert(u[3], f"🚨 **BLOCKED**\nUser: {source}\nReason: {reason}", 15548997)
     return jsonify({"status": status, "risk_score": score, "reason": reason, "coaching_tip": tip})
 
